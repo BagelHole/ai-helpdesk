@@ -5,7 +5,7 @@ Thank you for your interest in contributing to AI Helpdesk!
 ## Quick Start
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-org/ai-helpdesk.git`
+2. Clone your fork: `git clone https://github.com/bagelhole/ai-helpdesk.git`
 3. Install dependencies: `npm install`
 4. Create a feature branch: `git checkout -b feature/amazing-feature`
 5. Set up your development environment following the [Setup Guide](docs/SETUP_GUIDE.md)

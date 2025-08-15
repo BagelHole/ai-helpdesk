@@ -58,7 +58,7 @@ An open-source Electron desktop application that monitors your Slack communicati
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/your-org/ai-helpdesk.git
+   git clone https://github.com/bagelhole/ai-helpdesk.git
    cd ai-helpdesk
    ```
 
@@ -268,9 +268,9 @@ ai-helpdesk/
 
 ### Getting Help
 
-- **Documentation**: Check the [Wiki](https://github.com/your-org/ai-helpdesk/wiki)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/your-org/ai-helpdesk/issues)
-- **Discussions**: Join [GitHub Discussions](https://github.com/your-org/ai-helpdesk/discussions)
+- **Documentation**: Check the [Wiki](https://github.com/bagelhole/ai-helpdesk/wiki)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/bagelhole/ai-helpdesk/issues)
+- **Discussions**: Join [GitHub Discussions](https://github.com/bagelhole/ai-helpdesk/discussions)
 
 ### Common Issues
 
@@ -308,7 +308,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <strong>Built with ❤️ for the IT support community</strong>
   <br><br>
-  <a href="https://github.com/your-org/ai-helpdesk/stargazers">⭐ Star this repo</a> •
-  <a href="https://github.com/your-org/ai-helpdesk/fork">🍴 Fork it</a> •
-  <a href="https://github.com/your-org/ai-helpdesk/issues">🐛 Report a bug</a>
+  <a href="https://github.com/bagelhole/ai-helpdesk/stargazers">⭐ Star this repo</a> •
+  <a href="https://github.com/bagelhole/ai-helpdesk/fork">🍴 Fork it</a> •
+  <a href="https://github.com/bagelhole/ai-helpdesk/issues">🐛 Report a bug</a>
 </div>

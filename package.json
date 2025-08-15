@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "description": "AI-powered helpdesk for Slack messages with Rippling integration",
   "main": "dist/main/main.js",
-  "homepage": "https://github.com/your-org/ai-helpdesk",
+  "homepage": "https://github.com/bagelhole/ai-helpdesk",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "Toby Miller",
+    "email": "tobes789@gmail.com"
   },
   "license": "MIT",
   "keywords": [
@@ -20,10 +20,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/ai-helpdesk.git"
+    "url": "https://github.com/bagelhole/ai-helpdesk.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/ai-helpdesk/issues"
+    "url": "https://github.com/bagelhole/ai-helpdesk/issues"
   },
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\" \"npm run dev:preload\"",
@@ -161,7 +161,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "your-org",
+      "owner": "bagelhole",
       "repo": "ai-helpdesk"
     }
   }

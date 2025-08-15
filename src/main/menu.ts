@@ -381,14 +381,14 @@ export function createApplicationMenu(): Menu {
       {
         label: "Learn More",
         click: () => {
-          shell.openExternal("https://github.com/your-org/ai-helpdesk");
+          shell.openExternal("https://github.com/bagelhole/ai-helpdesk");
         },
       },
       {
         label: "Documentation",
         click: () => {
           shell.openExternal(
-            "https://github.com/your-org/ai-helpdesk/wiki"
+            "https://github.com/bagelhole/ai-helpdesk/wiki"
           );
         },
       },
@@ -396,7 +396,7 @@ export function createApplicationMenu(): Menu {
         label: "Report Issue",
         click: () => {
           shell.openExternal(
-            "https://github.com/your-org/ai-helpdesk/issues"
+            "https://github.com/bagelhole/ai-helpdesk/issues"
           );
         },
       },

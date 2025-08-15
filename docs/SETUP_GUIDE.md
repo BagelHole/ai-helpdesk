@@ -17,7 +17,7 @@ Before you begin, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/ai-helpdesk.git
+git clone https://github.com/bagelhole/ai-helpdesk.git
 cd ai-helpdesk
 
 # Install dependencies
@@ -329,9 +329,9 @@ Create reusable templates:
 
 ### Getting Help
 
-- Check the [troubleshooting wiki](https://github.com/your-org/ai-helpdesk/wiki/Troubleshooting)
-- Open an issue on [GitHub](https://github.com/your-org/ai-helpdesk/issues)
-- Join the community [discussions](https://github.com/your-org/ai-helpdesk/discussions)
+- Check the [troubleshooting wiki](https://github.com/bagelhole/ai-helpdesk/wiki/Troubleshooting)
+- Open an issue on [GitHub](https://github.com/bagelhole/ai-helpdesk/issues)
+- Join the community [discussions](https://github.com/bagelhole/ai-helpdesk/discussions)
 
 ## Security Checklist
 
