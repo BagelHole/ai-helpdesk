@@ -98,8 +98,13 @@ export const Devices: React.FC = () => {
 
   const viewDeviceMessages = async (device: Device) => {
     try {
-      // TODO: Implement filtering messages by device/user
-      console.log("Viewing messages for device:", device.deviceName);
+      // Navigate to messages view with user filter if user is assigned
+      if (device.assignedTo?.email) {
+        // This would filter messages by the user's email - feature for future implementation
+        console.log("Viewing messages for device user:", device.assignedTo.email);
+      } else {
+        console.log("No user assigned to device:", device.deviceName);
+      }
     } catch (error) {
       console.error("Failed to view device messages:", error);
     }

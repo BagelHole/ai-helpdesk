@@ -29,7 +29,7 @@ export const Docs: React.FC = () => {
     "documents",
     async () => {
       try {
-        // TODO: Implement document API
+        // Document API not yet implemented - returning empty array
         const result = await window.electronAPI.docs?.getDocuments();
         return result || [];
       } catch (error) {
@@ -54,8 +54,8 @@ export const Docs: React.FC = () => {
 
   const uploadFile = async (file: File) => {
     try {
-      console.log("Uploading file:", file.name);
-      // TODO: Implement file upload API
+      console.log("File upload feature coming soon:", file.name);
+      // File upload API will be implemented in future version
       // const result = await window.electronAPI.docs.uploadDocument(file);
       // refetch();
     } catch (error) {
@@ -65,8 +65,8 @@ export const Docs: React.FC = () => {
 
   const deleteDocument = async (docId: string) => {
     try {
-      console.log("Deleting document:", docId);
-      // TODO: Implement delete API
+      console.log("Document deletion feature coming soon:", docId);
+      // Delete API will be implemented in future version
       // await window.electronAPI.docs.deleteDocument(docId);
       // refetch();
     } catch (error) {
@@ -76,8 +76,8 @@ export const Docs: React.FC = () => {
 
   const viewDocument = async (doc: Document) => {
     try {
-      console.log("Viewing document:", doc.name);
-      // TODO: Implement document viewer
+      console.log("Document viewer feature coming soon:", doc.name);
+      // Document viewer will be implemented in future version
       // await window.electronAPI.docs.viewDocument(doc.id);
     } catch (error) {
       console.error("Failed to view document:", error);

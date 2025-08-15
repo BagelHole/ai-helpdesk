@@ -2,6 +2,14 @@
 
 > Intelligent Slack assistant for IT support automation with Rippling integration
 
+<div align="center">
+  <a href="https://getclair.com">
+    <img src="https://img.shields.io/badge/Sponsored%20by-Clair-blue?style=for-the-badge&logo=star&logoColor=white" alt="Sponsored by Clair">
+  </a>
+</div>
+
+<br>
+
 An open-source Electron desktop application that monitors your Slack communications and provides AI-assisted responses to IT requests, enhanced with user context from Rippling API integration.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -50,7 +58,7 @@ An open-source Electron desktop application that monitors your Slack communicati
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/ai-helpdesk.git
+   git clone https://github.com/your-org/ai-helpdesk.git
    cd ai-helpdesk
    ```
 
@@ -260,9 +268,9 @@ ai-helpdesk/
 
 ### Getting Help
 
-- **Documentation**: Check the [Wiki](https://github.com/yourusername/ai-helpdesk/wiki)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/ai-helpdesk/issues)
-- **Discussions**: Join [GitHub Discussions](https://github.com/yourusername/ai-helpdesk/discussions)
+- **Documentation**: Check the [Wiki](https://github.com/your-org/ai-helpdesk/wiki)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/your-org/ai-helpdesk/issues)
+- **Discussions**: Join [GitHub Discussions](https://github.com/your-org/ai-helpdesk/discussions)
 
 ### Common Issues
 
@@ -300,7 +308,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <strong>Built with ❤️ for the IT support community</strong>
   <br><br>
-  <a href="https://github.com/yourusername/ai-helpdesk/stargazers">⭐ Star this repo</a> •
-  <a href="https://github.com/yourusername/ai-helpdesk/fork">🍴 Fork it</a> •
-  <a href="https://github.com/yourusername/ai-helpdesk/issues">🐛 Report a bug</a>
+  <a href="https://github.com/your-org/ai-helpdesk/stargazers">⭐ Star this repo</a> •
+  <a href="https://github.com/your-org/ai-helpdesk/fork">🍴 Fork it</a> •
+  <a href="https://github.com/your-org/ai-helpdesk/issues">🐛 Report a bug</a>
 </div>

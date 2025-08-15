@@ -10,15 +10,26 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAppStore } from "../../hooks/useAppStore";
 
-const navigation = [
+const baseNavigation = [
   { name: "Messages", href: "/", icon: ChatBubbleLeftRightIcon },
-  { name: "Docs", href: "/docs", icon: HomeIcon }, // TODO: Change to DocumentIcon when available
-  { name: "Devices", href: "/devices", icon: ChartBarIcon }, // TODO: Change to DeviceIcon when available
+  { name: "Docs", href: "/docs", icon: HomeIcon },
   { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
 ];
 
+const devicesNavItem = { name: "Devices", href: "/devices", icon: ChartBarIcon };
+
 export const Sidebar: React.FC = () => {
-  const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
+  const { sidebarCollapsed, setSidebarCollapsed, settings } = useAppStore();
+  
+  // Check if Rippling API key is configured to show devices tab
+  const hasRipplingApiKey = Boolean(settings?.rippling?.apiKey);
+  
+  // Build navigation array conditionally
+  const navigation = [...baseNavigation];
+  if (hasRipplingApiKey) {
+    // Insert devices tab before settings (at index 2)
+    navigation.splice(2, 0, devicesNavItem);
+  }
 
   return (
     <div

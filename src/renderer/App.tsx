@@ -20,6 +20,18 @@ import { useTheme } from "./hooks/useTheme";
 // Types
 import { AppSettings } from "@shared/types";
 
+// Protected route component for devices that requires Rippling API key
+const ProtectedDevicesRoute: React.FC = () => {
+  const { settings } = useAppStore();
+  const hasRipplingApiKey = Boolean(settings?.rippling?.apiKey);
+  
+  if (!hasRipplingApiKey) {
+    return <Navigate to="/settings" replace />;
+  }
+  
+  return <Devices />;
+};
+
 export const App: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { settings, updateSettings, setConnectionStatus } = useAppStore();
@@ -190,7 +202,7 @@ export const App: React.FC = () => {
             <Route index element={<MessageQueue />} />
             <Route path="message/:messageId" element={<MessageDetail />} />
             <Route path="docs" element={<Docs />} />
-            <Route path="devices" element={<Devices />} />
+            <Route path="devices" element={<ProtectedDevicesRoute />} />
             <Route path="settings/*" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
