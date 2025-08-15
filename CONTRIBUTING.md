@@ -1,210 +1,66 @@
 # Contributing to AI Helpdesk
 
-Thank you for your interest in contributing to AI Helpdesk! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to AI Helpdesk! 
 
-## Code of Conduct
+## Quick Start
 
-This project adheres to a Code of Conduct that we expect all contributors to follow. Please read and follow it in all your interactions with the project.
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/bagelhole/ai-helpdesk.git`
+3. Install dependencies: `npm install`
+4. Create a feature branch: `git checkout -b feature/amazing-feature`
+5. Set up your development environment following the [Setup Guide](docs/SETUP_GUIDE.md)
 
 ## How to Contribute
 
 ### Reporting Bugs
 
-Before creating bug reports, please check the issue list as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
+Before creating bug reports, please check existing issues. Include:
+- Clear, descriptive title
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (OS, Node.js version)
 
-- **Use a clear and descriptive title** for the issue
-- **Describe the exact steps to reproduce the problem**
-- **Provide specific examples** to demonstrate the steps
-- **Describe the behavior you observed** and what behavior you expected
-- **Include screenshots** if they help explain your problem
-- **Include your environment details** (OS, Node.js version, etc.)
+### Suggesting Features
 
-### Suggesting Enhancements
-
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
-
-- **Use a clear and descriptive title**
-- **Provide a step-by-step description** of the suggested enhancement
-- **Provide specific examples** to demonstrate the enhancement
-- **Describe the current behavior** and explain the behavior you expected
-- **Explain why this enhancement would be useful**
-
-### Development Setup
-
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/ai-helpdesk.git`
-3. Install dependencies: `npm install`
-4. Create a feature branch: `git checkout -b feature/amazing-feature`
-5. Set up your development environment following the [Setup Guide](docs/SETUP_GUIDE.md)
+Create a GitHub issue with:
+- Clear description of the enhancement
+- Use case and benefits
+- Examples if applicable
 
 ### Pull Request Process
 
-1. **Update documentation** if you're changing functionality
-2. **Add tests** for new features or bug fixes
-3. **Ensure all tests pass**: `npm test`
-4. **Follow the coding style**: `npm run lint`
-5. **Update the README.md** with details of changes if applicable
-6. **Create a pull request** with a clear description of changes
+1. Update documentation for functionality changes
+2. Add tests for new features
+3. Ensure tests pass: `npm test`
+4. Follow coding style: `npm run lint`
+5. Create PR with clear description
 
 ### Coding Standards
 
-#### TypeScript
-
-- Use TypeScript for all new code
-- Provide proper type definitions
-- Avoid `any` types when possible
-- Use interfaces for object shapes
-
-#### React Components
-
-- Use functional components with hooks
-- Follow the established component structure
-- Use proper prop typing
-- Handle loading and error states
-
-#### Code Style
-
-- Follow the ESLint configuration
-- Use meaningful variable and function names
-- Write self-documenting code
-- Add comments for complex logic
-
-#### Git Commits
-
-- Use clear, descriptive commit messages
-- Start with a verb in present tense
-- Keep the first line under 50 characters
-- Add detailed description if needed
-
-Example:
-
-```
-Add Rippling user synchronization
-
-- Implement user data fetching from Rippling API
-- Add caching layer for user information
-- Include device and application data
-- Add error handling and retry logic
-```
-
-## Project Structure
-
-```
-ai-helpdesk/
-├── src/
-│   ├── main/              # Electron main process
-│   │   ├── services/      # Backend services
-│   │   └── main.ts        # App entry point
-│   ├── renderer/          # React frontend
-│   │   ├── components/    # UI components
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── services/      # Frontend services
-│   │   └── utils/         # Utility functions
-│   ├── shared/            # Shared code
-│   └── preload/           # Preload scripts
-├── docs/                  # Documentation
-├── tests/                 # Test files
-└── build/                 # Build configuration
-```
+- Use TypeScript with proper types
+- Functional React components with hooks
+- Follow ESLint configuration
+- Clear, descriptive commit messages
+- Self-documenting code with comments for complex logic
 
 ## Testing
 
-### Running Tests
-
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
+npm test              # Run tests
+npm run test:watch    # Watch mode
+npm run lint          # Check code style
 ```
 
-### Writing Tests
+Write tests for new features using React Testing Library.
 
-- Write unit tests for new functions and components
-- Use React Testing Library for component tests
-- Mock external dependencies appropriately
-- Aim for high test coverage on critical paths
+## Getting Help
 
-### Test Structure
-
-```typescript
-describe("ComponentName", () => {
-  it("should render correctly", () => {
-    // Test implementation
-  });
-
-  it("should handle user interaction", () => {
-    // Test implementation
-  });
-});
-```
-
-## Documentation
-
-### API Documentation
-
-- Document all public APIs and interfaces
-- Include examples for complex functions
-- Update type definitions when changing APIs
-
-### Component Documentation
-
-- Use JSDoc comments for component props
-- Document component behavior and use cases
-- Include usage examples
-
-### README Updates
-
-- Keep the README current with new features
-- Update installation instructions if needed
-- Add new configuration options
-
-## Release Process
-
-1. **Version Bump**: Update version in package.json
-2. **Changelog**: Update CHANGELOG.md with new features and fixes
-3. **Testing**: Ensure all tests pass and manual testing is complete
-4. **Build**: Create production builds for all platforms
-5. **Tag**: Create a git tag for the release
-6. **Release**: Create GitHub release with binaries
-
-## Community
-
-### Getting Help
-
-- Check existing issues and documentation first
+- Check existing issues and documentation
 - Use GitHub Discussions for questions
-- Join our community channels
-
-### Helping Others
-
-- Answer questions in issues and discussions
-- Review pull requests
-- Improve documentation
-- Share usage examples
-
-## Recognition
-
-Contributors will be recognized in:
-
-- CONTRIBUTORS.md file
-- Release notes for significant contributions
-- GitHub contributor graph
+- Open an issue for bugs or feature requests
 
 ## License
 
-By contributing to AI Helpdesk, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree your contributions will be licensed under the MIT License.
 
-## Questions?
-
-Feel free to reach out by:
-
-- Opening an issue
-- Starting a discussion
-- Contacting the maintainers
-
-Thank you for contributing to AI Helpdesk! 🚀
+Thank you for contributing! 🚀

@@ -473,7 +473,7 @@ export class DatabaseService {
         status: row.status,
         workLocation: row.work_location,
         phoneNumber: row.phone_number,
-        devices: [], // TODO: Load devices
+        devices: [], // Devices loaded separately via Rippling API
       };
     } catch (error) {
       this.logger.error("Failed to get Rippling user:", error);

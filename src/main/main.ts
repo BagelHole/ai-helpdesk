@@ -244,11 +244,19 @@ class Application {
       try {
         const { message, threadMessages, userInput, providerId } = requestData;
 
-        // Get documents if available
-        const documents: any[] = []; // TODO: Implement document retrieval
+        // Get documents if available (future feature)
+        const documents: any[] = [];
 
         // Get user devices if available
-        const userDevices: any[] = []; // TODO: Implement device retrieval based on message users
+        const userDevices: any[] = [];
+        try {
+          if (message.user && this.ripplingService) {
+            const devices = await this.ripplingService.getUserDevices(message.user);
+            userDevices.push(...devices);
+          }
+        } catch (error) {
+          console.log("Could not fetch user devices:", error);
+        }
 
         const response = await this.aiService.generateResponse(
           message,

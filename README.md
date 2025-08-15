@@ -1,6 +1,14 @@
 # 🤖 AI Helpdesk
 
-> Intelligent Slack assistant for IT support automation with Rippling integration
+> Intelligent Slack assistant for IT support
+
+<div align="center">
+  <a href="https://getclair.com">
+    <img src="https://img.shields.io/badge/Sponsored%20by-Clair-blue?style=for-the-badge&logo=star&logoColor=white" alt="Sponsored by Clair">
+  </a>
+</div>
+
+<br>
 
 An open-source Electron desktop application that monitors your Slack communications and provides AI-assisted responses to IT requests, enhanced with user context from Rippling API integration.
 
@@ -50,7 +58,7 @@ An open-source Electron desktop application that monitors your Slack communicati
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/ai-helpdesk.git
+   git clone https://github.com/bagelhole/ai-helpdesk.git
    cd ai-helpdesk
    ```
 
@@ -92,15 +100,6 @@ An open-source Electron desktop application that monitors your Slack communicati
    - `groups:read` - Access private channels
 3. **Install the app** to your workspace
 4. **Copy the Bot Token** and add it to AI Helpdesk settings
-
-### Rippling Integration
-
-1. **Generate API key** in your Rippling admin panel
-2. **Configure permissions** for:
-   - Employee data access
-   - Device information
-   - Application listings
-3. **Add API key** to AI Helpdesk settings
 
 ### AI Provider Setup
 
@@ -260,9 +259,9 @@ ai-helpdesk/
 
 ### Getting Help
 
-- **Documentation**: Check the [Wiki](https://github.com/yourusername/ai-helpdesk/wiki)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/ai-helpdesk/issues)
-- **Discussions**: Join [GitHub Discussions](https://github.com/yourusername/ai-helpdesk/discussions)
+- **Documentation**: Check the [Wiki](https://github.com/bagelhole/ai-helpdesk/wiki)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/bagelhole/ai-helpdesk/issues)
+- **Discussions**: Join [GitHub Discussions](https://github.com/bagelhole/ai-helpdesk/discussions)
 
 ### Common Issues
 
@@ -300,7 +299,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <strong>Built with ❤️ for the IT support community</strong>
   <br><br>
-  <a href="https://github.com/yourusername/ai-helpdesk/stargazers">⭐ Star this repo</a> •
-  <a href="https://github.com/yourusername/ai-helpdesk/fork">🍴 Fork it</a> •
-  <a href="https://github.com/yourusername/ai-helpdesk/issues">🐛 Report a bug</a>
+  <a href="https://github.com/bagelhole/ai-helpdesk/stargazers">⭐ Star this repo</a> •
+  <a href="https://github.com/bagelhole/ai-helpdesk/fork">🍴 Fork it</a> •
+  <a href="https://github.com/bagelhole/ai-helpdesk/issues">🐛 Report a bug</a>
 </div>

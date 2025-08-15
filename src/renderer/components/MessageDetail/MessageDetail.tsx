@@ -61,7 +61,7 @@ export const MessageDetail: React.FC = () => {
         message,
         threadMessages: threadMessages || [],
         userInput: aiInput,
-        // TODO: Add providerId selection from UI
+        // Uses default AI provider from settings
       });
 
       setAiResponse(response.response);
