@@ -105,6 +105,24 @@ class Application {
       try {
         await this.settingsService.updateSettings(settings);
 
+        // Update category keywords in SlackService
+        if (settings.ai?.categoryKeywords) {
+          this.slackService.updateCategoryKeywords(
+            settings.ai.categoryKeywords
+          );
+        }
+
+        // Update custom system prompts in AIService
+        if (
+          settings.ai?.customSystemPrompts &&
+          settings.ai?.activeSystemPrompt
+        ) {
+          this.aiService.updateCustomSystemPrompts(
+            settings.ai.customSystemPrompts,
+            settings.ai.activeSystemPrompt
+          );
+        }
+
         // Auto-connect to Slack if bot token is provided
         if (settings.slack?.botToken && !this.slackService.isSlackConnected()) {
           try {
@@ -463,6 +481,19 @@ class Application {
   private async autoConnectServices(): Promise<void> {
     try {
       const settings = await this.settingsService.getSettings();
+
+      // Initialize category keywords in SlackService
+      if (settings.ai?.categoryKeywords) {
+        this.slackService.updateCategoryKeywords(settings.ai.categoryKeywords);
+      }
+
+      // Initialize custom system prompts in AIService
+      if (settings.ai?.customSystemPrompts && settings.ai?.activeSystemPrompt) {
+        this.aiService.updateCustomSystemPrompts(
+          settings.ai.customSystemPrompts,
+          settings.ai.activeSystemPrompt
+        );
+      }
 
       // Auto-connect to Slack if bot token exists
       if (settings.slack?.botToken && !this.slackService.isSlackConnected()) {

@@ -17,6 +17,7 @@ export class SlackService {
   private isConnected = false;
   private messageHandlers: ((message: SlackMessage) => void)[] = [];
   private settings: SlackSettings | null = null;
+  private categoryKeywords: any[] = [];
   private channelCache: Map<string, string> = new Map(); // channelId -> channelName
   private pollingInterval: NodeJS.Timeout | null = null;
   private lastPolledTimestamp: string = "0";
@@ -84,6 +85,18 @@ export class SlackService {
     return this.isConnected;
   }
 
+  public updateCategoryKeywords(keywords: any[]): void {
+    this.categoryKeywords = keywords;
+    this.logger.info(
+      `Updated category keywords: ${keywords.length} categories`
+    );
+    keywords.forEach((cat, index) => {
+      this.logger.info(
+        `Category ${index + 1}: ${cat.displayName} (${cat.category}) - Keywords: [${cat.keywords.join(", ")}]`
+      );
+    });
+  }
+
   public async forcePoll(): Promise<void> {
     this.logger.info("🔬 Force polling triggered manually");
     this.logger.info(
@@ -133,10 +146,10 @@ export class SlackService {
     }
 
     try {
-      this.logger.info("🔄 Polling for new messages...");
+      this.logger.debug("🔄 Polling for new messages...");
       // Poll conversations (channels, groups, DMs)
       const conversations = await this.getConversationsToMonitor();
-      this.logger.info(
+      this.logger.debug(
         `Found ${conversations.length} conversations to monitor`
       );
 
@@ -169,7 +182,7 @@ export class SlackService {
         conversationTypes.push("im", "mpim");
       }
 
-      this.logger.info(
+      this.logger.debug(
         "Trying basic conversations.list without types filter..."
       );
       const response = await this.webClient.conversations.list({
@@ -206,7 +219,7 @@ export class SlackService {
       this.logger.error("Error getting conversations:", error);
     }
 
-    this.logger.info(
+    this.logger.debug(
       `Will monitor ${conversations.length} conversations: ${conversations.map((c) => c.name).join(", ")}`
     );
     return conversations;
@@ -298,7 +311,7 @@ export class SlackService {
     if (!this.webClient) return;
 
     try {
-      this.logger.info(
+      this.logger.debug(
         `🔍 Checking messages in ${conversationId} since ${this.lastPolledTimestamp}`
       );
       const response = await this.webClient.conversations.history({
@@ -308,7 +321,7 @@ export class SlackService {
       });
 
       if (response.ok && response.messages) {
-        this.logger.info(
+        this.logger.debug(
           `📨 Found ${response.messages.length} messages in ${conversationId}`
         );
         // Process messages in reverse order (oldest first)
@@ -779,50 +792,64 @@ export class SlackService {
   private categorizeMessage(text: string): MessageCategory {
     const lowerText = text.toLowerCase();
 
-    // Password related
-    if (
-      lowerText.includes("password") ||
-      lowerText.includes("login") ||
-      lowerText.includes("access")
-    ) {
-      return MessageCategory.PASSWORD_RESET;
-    }
+    this.logger.debug(`Categorizing message: "${text}"`);
+    this.logger.debug(`Available categories: ${this.categoryKeywords.length}`);
 
-    // VPN related
-    if (
-      lowerText.includes("vpn") ||
-      lowerText.includes("connection") ||
-      lowerText.includes("network")
-    ) {
-      return MessageCategory.VPN_SUPPORT;
-    }
+    // Use configurable category keywords
+    if (this.categoryKeywords && this.categoryKeywords.length > 0) {
+      let bestMatch: {
+        category: MessageCategory;
+        keywordLength: number;
+        keyword: string;
+      } | null = null;
 
-    // Software installation
-    if (
-      lowerText.includes("install") ||
-      lowerText.includes("software") ||
-      lowerText.includes("app")
-    ) {
-      return MessageCategory.SOFTWARE_INSTALL;
-    }
+      // Find the longest/most specific keyword match
+      for (const categoryConfig of this.categoryKeywords) {
+        this.logger.debug(
+          `Checking category: ${categoryConfig.displayName} with keywords: [${categoryConfig.keywords.join(", ")}]`
+        );
 
-    // Hardware issues
-    if (
-      lowerText.includes("computer") ||
-      lowerText.includes("laptop") ||
-      lowerText.includes("hardware") ||
-      lowerText.includes("device")
-    ) {
-      return MessageCategory.HARDWARE_ISSUE;
-    }
+        for (const keyword of categoryConfig.keywords) {
+          const keywordLower = keyword.toLowerCase();
+          if (lowerText.includes(keywordLower)) {
+            let matchScore = keywordLower.length;
 
-    // Access requests
-    if (
-      lowerText.includes("permission") ||
-      lowerText.includes("access to") ||
-      lowerText.includes("need access")
-    ) {
-      return MessageCategory.ACCESS_REQUEST;
+            // Boost score for exact word matches (not just substring)
+            const words = lowerText.split(/\s+/);
+            if (words.includes(keywordLower)) {
+              matchScore += 100; // Big boost for exact word matches
+            }
+
+            this.logger.debug(
+              `Found match: keyword="${keyword}" in category="${categoryConfig.displayName}" with score=${matchScore}`
+            );
+
+            // Prioritize longer, more specific keywords and exact matches
+            if (!bestMatch || matchScore > bestMatch.keywordLength) {
+              bestMatch = {
+                category: categoryConfig.category,
+                keywordLength: matchScore,
+                keyword: keyword,
+              };
+            }
+          }
+        }
+      }
+
+      if (bestMatch) {
+        this.logger.debug(
+          `Best match: category="${bestMatch.category}" keyword="${bestMatch.keyword}" score=${bestMatch.keywordLength}`
+        );
+        return bestMatch.category;
+      } else {
+        this.logger.debug(
+          `No keyword matches found, defaulting to GENERAL_QUESTION`
+        );
+      }
+    } else {
+      this.logger.debug(
+        `No category keywords configured, defaulting to GENERAL_QUESTION`
+      );
     }
 
     return MessageCategory.GENERAL_QUESTION;

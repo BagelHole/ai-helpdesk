@@ -1,6 +1,6 @@
 import Store from "electron-store";
 import { safeStorage } from "electron";
-import { AppSettings, DeepPartial } from "@shared/types";
+import { AppSettings, DeepPartial, MessageCategory } from "@shared/types";
 import { Logger } from "./logger-service";
 
 interface EncryptedData {
@@ -188,11 +188,106 @@ export class SettingsService {
         defaultProvider: "",
         systemPrompts: [],
         defaultPrompt: "",
+        customSystemPrompts: [
+          {
+            id: "default",
+            name: "Default IT Support",
+            content: `You are an AI assistant helping with IT support requests. You provide helpful, accurate, and professional responses to technical questions. Always be concise but thorough, and escalate complex issues when appropriate.
+
+Guidelines:
+- Be friendly and professional
+- Provide step-by-step instructions when helpful
+- Ask for clarification if the request is unclear
+- Escalate hardware issues or complex problems
+- Include relevant links or resources when possible`,
+            isDefault: true,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+        activeSystemPrompt: "default",
         autoResponseEnabled: false,
         confidenceThreshold: 0.8,
         maxTokensPerResponse: 1000,
         temperature: 0.7,
         enableLocalModels: false,
+        categoryKeywords: [
+          {
+            category: MessageCategory.PASSWORD_RESET,
+            keywords: [
+              "password",
+              "login",
+              "access",
+              "signin",
+              "sign in",
+              "forgot password",
+              "reset password",
+              "locked out",
+              "can't log in",
+            ],
+            displayName: "Password Reset",
+            description: "Issues related to password resets and login problems",
+          },
+          {
+            category: MessageCategory.VPN_SUPPORT,
+            keywords: [
+              "vpn",
+              "connection",
+              "network",
+              "remote access",
+              "can't connect",
+              "vpn down",
+              "slow connection",
+            ],
+            displayName: "VPN Support",
+            description: "VPN connectivity and network access issues",
+          },
+          {
+            category: MessageCategory.SOFTWARE_INSTALL,
+            keywords: [
+              "install",
+              "software",
+              "app",
+              "application",
+              "download",
+              "setup",
+              "configure",
+              "license",
+            ],
+            displayName: "Software Installation",
+            description: "Software installation and configuration requests",
+          },
+          {
+            category: MessageCategory.HARDWARE_ISSUE,
+            keywords: [
+              "computer",
+              "laptop",
+              "hardware",
+              "device",
+              "broken",
+              "not working",
+              "screen",
+              "keyboard",
+              "mouse",
+            ],
+            displayName: "Hardware Issues",
+            description: "Hardware problems and device malfunctions",
+          },
+          {
+            category: MessageCategory.ACCESS_REQUEST,
+            keywords: [
+              "permission",
+              "access to",
+              "need access",
+              "folder access",
+              "file access",
+              "system access",
+            ],
+            displayName: "Access Requests",
+            description: "Requests for system, file, or application access",
+          },
+        ],
       },
       ui: {
         theme: "system",

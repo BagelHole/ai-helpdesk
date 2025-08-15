@@ -22,6 +22,8 @@ export class AIService {
   private clients: Map<string, AxiosInstance> = new Map();
   private logger: Logger;
   private defaultProvider: string | null = null;
+  private customSystemPrompts: any[] = [];
+  private activeSystemPromptId: string | null = null;
 
   constructor() {
     this.logger = new Logger();
@@ -344,6 +346,19 @@ export class AIService {
     // Add system prompt
     if (systemPrompt) {
       context += this.processSystemPrompt(systemPrompt, message.context);
+    } else if (
+      this.activeSystemPromptId &&
+      this.customSystemPrompts.length > 0
+    ) {
+      // Use active custom system prompt
+      const activePrompt = this.customSystemPrompts.find(
+        (p) => p.id === this.activeSystemPromptId
+      );
+      if (activePrompt) {
+        context += activePrompt.content;
+      } else {
+        context += this.getDefaultSystemPrompt();
+      }
     } else {
       context += this.getDefaultSystemPrompt();
     }
@@ -638,6 +653,17 @@ Guidelines:
     } else {
       throw new Error(`Provider ${providerId} not found`);
     }
+  }
+
+  public updateCustomSystemPrompts(
+    prompts: any[],
+    activePromptId: string
+  ): void {
+    this.customSystemPrompts = prompts;
+    this.activeSystemPromptId = activePromptId;
+    this.logger.debug(
+      `Updated custom system prompts: ${prompts.length} prompts, active: ${activePromptId}`
+    );
   }
 
   public getDefaultProvider(): string | null {

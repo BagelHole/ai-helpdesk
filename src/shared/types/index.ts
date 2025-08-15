@@ -17,7 +17,7 @@ export interface SlackMessage {
   timestamp: string;
   thread_ts?: string;
   reply_count?: number;
-  type: 'message' | 'app_mention' | 'direct_message';
+  type: "message" | "app_mention" | "direct_message";
   files?: SlackFile[];
   reactions?: SlackReaction[];
   priority: MessagePriority;
@@ -89,7 +89,7 @@ export interface RipplingUser {
   department: string;
   manager?: string;
   startDate: string;
-  status: 'active' | 'inactive' | 'terminated';
+  status: "active" | "inactive" | "terminated";
   workLocation: string;
   phoneNumber?: string;
   devices: DeviceInfo[];
@@ -108,13 +108,13 @@ export interface AIResponse {
   timestamp: string;
   isEdited: boolean;
   originalResponse?: string;
-  status: 'pending' | 'generated' | 'sent' | 'failed';
+  status: "pending" | "generated" | "sent" | "failed";
 }
 
 export interface AIProvider {
   id: string;
   name: string;
-  type: 'openai' | 'anthropic' | 'google' | 'ollama' | 'custom';
+  type: "openai" | "anthropic" | "google" | "ollama" | "custom";
   apiKey?: string;
   baseUrl?: string;
   models: AIModel[];
@@ -155,7 +155,7 @@ export interface SystemPrompt {
 export interface PromptVariable {
   name: string;
   description: string;
-  type: 'string' | 'number' | 'boolean' | 'object';
+  type: "string" | "number" | "boolean" | "object";
   defaultValue?: any;
   required: boolean;
 }
@@ -193,21 +193,41 @@ export interface RipplingSettings {
   enableApplicationSync: boolean;
 }
 
+export interface CategoryKeywords {
+  category: MessageCategory;
+  keywords: string[];
+  displayName: string;
+  description?: string;
+}
+
+export interface CustomSystemPrompt {
+  id: string;
+  name: string;
+  content: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AISettings {
   providers: AIProvider[];
   defaultProvider: string;
   systemPrompts: SystemPrompt[];
   defaultPrompt: string;
+  customSystemPrompts: CustomSystemPrompt[];
+  activeSystemPrompt: string; // ID of the active custom prompt
   autoResponseEnabled: boolean;
   confidenceThreshold: number;
   maxTokensPerResponse: number;
   temperature: number;
   enableLocalModels: boolean;
   ollamaUrl?: string;
+  categoryKeywords: CategoryKeywords[];
 }
 
 export interface UISettings {
-  theme: 'light' | 'dark' | 'system';
+  theme: "light" | "dark" | "system";
   language: string;
   fontSize: number;
   compactMode: boolean;
@@ -256,7 +276,7 @@ export interface AutoResponseRule {
   id: string;
   name: string;
   conditions: RuleCondition[];
-  action: 'auto_respond' | 'suggest' | 'escalate' | 'ignore';
+  action: "auto_respond" | "suggest" | "escalate" | "ignore";
   promptId: string;
   isEnabled: boolean;
   priority: number;
@@ -267,13 +287,26 @@ export interface EscalationRule {
   name: string;
   conditions: RuleCondition[];
   escalateTo: string; // user ID or channel
-  urgency: 'low' | 'medium' | 'high' | 'critical';
+  urgency: "low" | "medium" | "high" | "critical";
   isEnabled: boolean;
 }
 
 export interface RuleCondition {
-  field: 'message_text' | 'user_id' | 'channel_id' | 'time' | 'keywords' | 'priority';
-  operator: 'contains' | 'equals' | 'starts_with' | 'ends_with' | 'regex' | 'greater_than' | 'less_than';
+  field:
+    | "message_text"
+    | "user_id"
+    | "channel_id"
+    | "time"
+    | "keywords"
+    | "priority";
+  operator:
+    | "contains"
+    | "equals"
+    | "starts_with"
+    | "ends_with"
+    | "regex"
+    | "greater_than"
+    | "less_than";
   value: string | number | boolean;
 }
 
@@ -308,38 +341,38 @@ export interface EffectivenessStats {
 
 // Enums
 export enum MessagePriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  URGENT = 'urgent'
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  URGENT = "urgent",
 }
 
 export enum MessageCategory {
-  PASSWORD_RESET = 'password_reset',
-  VPN_SUPPORT = 'vpn_support',
-  SOFTWARE_INSTALL = 'software_install',
-  HARDWARE_ISSUE = 'hardware_issue',
-  ACCESS_REQUEST = 'access_request',
-  GENERAL_QUESTION = 'general_question',
-  ESCALATION = 'escalation',
-  OTHER = 'other'
+  PASSWORD_RESET = "password_reset",
+  VPN_SUPPORT = "vpn_support",
+  SOFTWARE_INSTALL = "software_install",
+  HARDWARE_ISSUE = "hardware_issue",
+  ACCESS_REQUEST = "access_request",
+  GENERAL_QUESTION = "general_question",
+  ESCALATION = "escalation",
+  OTHER = "other",
 }
 
 export enum MessageStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  RESPONDED = 'responded',
-  ESCALATED = 'escalated',
-  IGNORED = 'ignored',
-  FAILED = 'failed'
+  PENDING = "pending",
+  PROCESSING = "processing",
+  RESPONDED = "responded",
+  ESCALATED = "escalated",
+  IGNORED = "ignored",
+  FAILED = "failed",
 }
 
 export enum PromptCategory {
-  IT_SUPPORT = 'it_support',
-  GENERAL = 'general',
-  CUSTOM = 'custom',
-  TROUBLESHOOTING = 'troubleshooting',
-  ONBOARDING = 'onboarding'
+  IT_SUPPORT = "it_support",
+  GENERAL = "general",
+  CUSTOM = "custom",
+  TROUBLESHOOTING = "troubleshooting",
+  ONBOARDING = "onboarding",
 }
 
 // IPC Types
@@ -357,20 +390,20 @@ export interface IPCResponse<T = any> {
 }
 
 // Database Types
-export interface DatabaseMessage extends Omit<SlackMessage, 'id'> {
+export interface DatabaseMessage extends Omit<SlackMessage, "id"> {
   id?: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface DatabaseUser extends Omit<User, 'id'> {
+export interface DatabaseUser extends Omit<User, "id"> {
   id?: number;
   slack_id: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface DatabaseAIResponse extends Omit<AIResponse, 'id'> {
+export interface DatabaseAIResponse extends Omit<AIResponse, "id"> {
   id?: number;
   created_at: string;
   updated_at: string;
