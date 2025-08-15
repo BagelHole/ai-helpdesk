@@ -1,6 +1,6 @@
 # 🤖 AI Helpdesk
 
-> Intelligent Slack assistant for IT support automation with Rippling integration
+> Intelligent Slack assistant for IT support
 
 <div align="center">
   <a href="https://getclair.com">
@@ -100,15 +100,6 @@ An open-source Electron desktop application that monitors your Slack communicati
    - `groups:read` - Access private channels
 3. **Install the app** to your workspace
 4. **Copy the Bot Token** and add it to AI Helpdesk settings
-
-### Rippling Integration
-
-1. **Generate API key** in your Rippling admin panel
-2. **Configure permissions** for:
-   - Employee data access
-   - Device information
-   - Application listings
-3. **Add API key** to AI Helpdesk settings
 
 ### AI Provider Setup
 
