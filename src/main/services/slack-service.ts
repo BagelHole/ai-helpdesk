@@ -7,6 +7,7 @@ import {
   MessageCategory,
   MessageStatus,
   SlackAPIResponse,
+  SlackSettings,
 } from "@shared/types";
 
 export class SlackService {
@@ -15,12 +16,21 @@ export class SlackService {
   private logger: Logger;
   private isConnected = false;
   private messageHandlers: ((message: SlackMessage) => void)[] = [];
+  private settings: SlackSettings | null = null;
+  private channelCache: Map<string, string> = new Map(); // channelId -> channelName
+  private pollingInterval: NodeJS.Timeout | null = null;
+  private lastPolledTimestamp: string = "0";
+  private isPolling = false;
 
-  constructor() {
+  constructor(private databaseService?: any) {
     this.logger = new Logger();
   }
 
-  public async connect(botToken: string, appToken?: string): Promise<void> {
+  public async connect(
+    botToken: string,
+    appToken?: string,
+    settings?: SlackSettings
+  ): Promise<void> {
     try {
       this.logger.info("Connecting to Slack...");
 
@@ -35,21 +45,14 @@ export class SlackService {
 
       this.logger.info(`Connected to Slack workspace: ${authResult.team}`);
 
-      // Initialize Socket Mode client if app token is provided
-      if (appToken) {
-        this.socketClient = new SocketModeClient({
-          appToken,
-        });
-
-        // Set up event handlers
-        this.setupEventHandlers();
-
-        // Start socket connection
-        await this.socketClient.start();
-        this.logger.info("Socket Mode connection established");
-      }
+      // Store settings for message filtering
+      this.settings = settings || null;
 
       this.isConnected = true;
+
+      // Start polling for new messages instead of Socket Mode
+      this.startPolling();
+      this.logger.info("Started polling for new messages");
     } catch (error) {
       this.logger.error("Failed to connect to Slack:", error);
       throw error;
@@ -58,6 +61,9 @@ export class SlackService {
 
   public async disconnect(): Promise<void> {
     try {
+      // Stop polling
+      this.stopPolling();
+
       if (this.socketClient) {
         await this.socketClient.disconnect();
         this.socketClient = null;
@@ -76,6 +82,459 @@ export class SlackService {
 
   public isSlackConnected(): boolean {
     return this.isConnected;
+  }
+
+  public async forcePoll(): Promise<void> {
+    this.logger.info("🔬 Force polling triggered manually");
+    this.logger.info(
+      `Debug state: isConnected=${this.isConnected}, hasWebClient=${!!this.webClient}, hasSettings=${!!this.settings}`
+    );
+    if (this.settings) {
+      this.logger.info(`Settings: ${JSON.stringify(this.settings)}`);
+    }
+    await this.pollForNewMessages();
+  }
+
+  private startPolling(): void {
+    if (this.isPolling || !this.webClient) {
+      return;
+    }
+
+    this.isPolling = true;
+    // Start polling from last 24 hours to catch recent unread messages
+    const twentyFourHoursAgo = Date.now() / 1000 - 24 * 60 * 60;
+    this.lastPolledTimestamp = twentyFourHoursAgo.toString();
+
+    // Poll every 10 seconds
+    this.pollingInterval = setInterval(async () => {
+      try {
+        await this.pollForNewMessages();
+      } catch (error) {
+        this.logger.error("Error during polling:", error);
+      }
+    }, 10000);
+
+    this.logger.info("Started polling for new messages every 10 seconds");
+  }
+
+  private stopPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+    this.isPolling = false;
+    this.logger.info("Stopped polling for messages");
+  }
+
+  private async pollForNewMessages(): Promise<void> {
+    if (!this.webClient || !this.settings) {
+      this.logger.debug("Polling skipped: no webClient or settings");
+      return;
+    }
+
+    try {
+      this.logger.info("🔄 Polling for new messages...");
+      // Poll conversations (channels, groups, DMs)
+      const conversations = await this.getConversationsToMonitor();
+      this.logger.info(
+        `Found ${conversations.length} conversations to monitor`
+      );
+
+      for (const conversation of conversations) {
+        this.logger.debug(
+          `Polling conversation: ${conversation.name} (${conversation.type})`
+        );
+        await this.pollConversationMessages(conversation.id, conversation.type);
+      }
+    } catch (error) {
+      this.logger.error("Error polling for messages:", error);
+    }
+  }
+
+  private async getConversationsToMonitor(): Promise<
+    Array<{ id: string; name: string; type: string }>
+  > {
+    if (!this.webClient || !this.settings) return [];
+
+    const conversations: Array<{ id: string; name: string; type: string }> = [];
+
+    try {
+      // Get all conversations the bot has access to
+      this.logger.debug("Fetching conversations list...");
+      // Try different conversation types separately to avoid scope issues
+      const conversationTypes = ["public_channel"];
+
+      // Add other types if we have the right settings enabled
+      if (this.settings.enableDMs) {
+        conversationTypes.push("im", "mpim");
+      }
+
+      this.logger.info(
+        "Trying basic conversations.list without types filter..."
+      );
+      const response = await this.webClient.conversations.list({
+        limit: 1000,
+      });
+
+      if (response.ok && response.channels) {
+        this.logger.debug(
+          `Found ${response.channels.length} total conversations`
+        );
+
+        // Log all channel names for debugging
+        const allChannelNames = response.channels
+          .map((c: any) => c.name)
+          .filter(Boolean);
+        this.logger.info(`All channel names: ${allChannelNames.join(", ")}`);
+
+        for (const channel of response.channels) {
+          const shouldMonitor = this.shouldMonitorConversation(channel);
+          this.logger.debug(
+            `Channel ${channel.name || channel.id}: shouldMonitor=${shouldMonitor}, type=${this.getConversationType(channel)}`
+          );
+          if (shouldMonitor) {
+            conversations.push({
+              id: channel.id!,
+              name: channel.name || `dm-${channel.id}`,
+              type: this.getConversationType(channel),
+            });
+          }
+        }
+      } else {
+        this.logger.error("Failed to get conversations:", response.error);
+      }
+    } catch (error) {
+      this.logger.error("Error getting conversations:", error);
+    }
+
+    this.logger.info(
+      `Will monitor ${conversations.length} conversations: ${conversations.map((c) => c.name).join(", ")}`
+    );
+    return conversations;
+  }
+
+  private shouldMonitorConversation(channel: any): boolean {
+    if (!this.settings) {
+      this.logger.debug("No settings - monitoring all conversations");
+      return true; // If no settings, monitor everything
+    }
+
+    this.logger.debug(
+      `Checking channel ${channel.name || channel.id}: ${JSON.stringify({
+        is_im: channel.is_im,
+        is_group: channel.is_group,
+        is_private: channel.is_private,
+        is_channel: channel.is_channel,
+        is_member: channel.is_member,
+        enableDMs: this.settings.enableDMs,
+        enableMentions: this.settings.enableMentions,
+        monitoredChannels: this.settings.monitoredChannels,
+        ignoredChannels: this.settings.ignoredChannels,
+      })}`
+    );
+
+    // Check DMs
+    if (channel.is_im && !this.settings.enableDMs) {
+      this.logger.debug(`Skipping IM - enableDMs is false`);
+      return false;
+    }
+
+    // Check groups/private channels
+    if ((channel.is_group || channel.is_private) && !this.settings.enableDMs) {
+      this.logger.debug(`Skipping group/private - enableDMs is false`);
+      return false;
+    }
+
+    // Check public channels
+    if (channel.is_channel) {
+      // Only monitor channels the bot is a member of
+      if (!channel.is_member) {
+        this.logger.debug(
+          `Skipping channel ${channel.name} - bot is not a member`
+        );
+        return false;
+      }
+
+      const channelName = channel.name;
+
+      // Check ignored channels
+      if (
+        this.settings.ignoredChannels.length > 0 &&
+        channelName &&
+        this.settings.ignoredChannels.includes(channelName)
+      ) {
+        this.logger.debug(`Skipping channel ${channelName} - in ignored list`);
+        return false;
+      }
+
+      // Check monitored channels (if specified, only monitor those channels)
+      if (
+        this.settings.monitoredChannels.length > 0 &&
+        channelName &&
+        !this.settings.monitoredChannels.includes(channelName)
+      ) {
+        this.logger.debug(
+          `Skipping channel ${channelName} - not in monitored list: [${this.settings.monitoredChannels.join(", ")}]`
+        );
+        return false;
+      }
+    }
+
+    this.logger.debug(`Will monitor channel ${channel.name || channel.id}`);
+    return true;
+  }
+
+  private getConversationType(channel: any): string {
+    if (channel.is_im) return "im";
+    if (channel.is_group) return "group";
+    if (channel.is_private) return "private_channel";
+    if (channel.is_channel) return "channel";
+    return "unknown";
+  }
+
+  private async pollConversationMessages(
+    conversationId: string,
+    type: string
+  ): Promise<void> {
+    if (!this.webClient) return;
+
+    try {
+      this.logger.info(
+        `🔍 Checking messages in ${conversationId} since ${this.lastPolledTimestamp}`
+      );
+      const response = await this.webClient.conversations.history({
+        channel: conversationId,
+        oldest: this.lastPolledTimestamp,
+        limit: 100,
+      });
+
+      if (response.ok && response.messages) {
+        this.logger.info(
+          `📨 Found ${response.messages.length} messages in ${conversationId}`
+        );
+        // Process messages in reverse order (oldest first)
+        const messages = response.messages.reverse();
+
+        for (const message of messages) {
+          this.logger.debug(
+            `Message: ${JSON.stringify({
+              ts: message.ts,
+              user: message.user,
+              text: message.text?.substring(0, 50),
+              bot_id: message.bot_id,
+              subtype: message.subtype,
+            })}`
+          );
+
+          // Skip bot messages and message subtypes we don't want
+          if (message.bot_id || message.subtype) {
+            this.logger.debug(
+              `Skipping message: bot_id=${message.bot_id}, subtype=${message.subtype}`
+            );
+            continue;
+          }
+
+          // Convert to our message format and process
+          const processedMessage = await this.convertToSlackMessage(
+            message,
+            conversationId,
+            type
+          );
+          if (processedMessage) {
+            this.logger.info(
+              `✅ Processing new message from ${processedMessage.user}: ${processedMessage.text.substring(0, 50)}...`
+            );
+            await this.processMessage(processedMessage);
+          }
+
+          // Update last polled timestamp
+          if (
+            message.ts &&
+            parseFloat(message.ts) > parseFloat(this.lastPolledTimestamp)
+          ) {
+            this.lastPolledTimestamp = message.ts;
+          }
+        }
+      } else {
+        this.logger.debug(
+          `No messages or error in ${conversationId}:`,
+          response.error
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error polling conversation ${conversationId}:`, error);
+    }
+  }
+
+  private async convertToSlackMessage(
+    message: any,
+    channelId: string,
+    channelType: string
+  ): Promise<SlackMessage | null> {
+    if (!message.text || !message.user) {
+      return null;
+    }
+
+    try {
+      // Get user information
+      const userInfo = await this.getUserInfo(message.user);
+
+      // Categorize and prioritize the message
+      const category = this.categorizeMessage(message.text);
+      const priority = this.prioritizeMessage(message.text, category);
+
+      this.logger.info(
+        `📋 Message categorized: "${message.text.substring(0, 50)}..." -> Category: ${category}, Priority: ${priority}`
+      );
+
+      // Get channel name for display
+      const channelName = await this.getChannelName(channelId);
+
+      // Process message text to resolve mentions and formatting
+      const processedText = await this.processMessageText(message.text);
+
+      const slackMessage: SlackMessage = {
+        id: message.ts,
+        channel: channelName || channelId,
+        user: userInfo?.name || message.user,
+        text: processedText,
+        timestamp: message.ts,
+        thread_ts: message.thread_ts,
+        reply_count: 0,
+        type: this.getMessageTypeFromChannel(channelType),
+        files: message.files || [],
+        reactions: [],
+        priority,
+        category,
+        status: "PENDING" as any,
+        context: {
+          threadHistory: [],
+          userInfo,
+        },
+      };
+
+      return slackMessage;
+    } catch (error) {
+      this.logger.error("Error converting message:", error);
+      return null;
+    }
+  }
+
+  private getMessageTypeFromChannel(channelType: string): any {
+    switch (channelType) {
+      case "im":
+        return "DIRECT_MESSAGE";
+      case "group":
+      case "private_channel":
+        return "GROUP_MESSAGE";
+      case "channel":
+        return "CHANNEL_MESSAGE";
+      default:
+        return "CHANNEL_MESSAGE";
+    }
+  }
+
+  private async processMessageText(text: string): Promise<string> {
+    if (!text) return text;
+
+    let processedText = text;
+
+    // Replace user mentions <@U123456> with actual names
+    const userMentionRegex = /<@([UW][A-Z0-9]+)>/g;
+    const userMatches = [...text.matchAll(userMentionRegex)];
+
+    for (const match of userMatches) {
+      const userId = match[1];
+      try {
+        const userInfo = await this.getUserInfo(userId);
+        const userName = userInfo?.name || userId;
+        processedText = processedText.replace(match[0], `@${userName}`);
+      } catch (error) {
+        this.logger.debug(`Failed to resolve user ${userId}:`, error);
+        // Keep original if resolution fails
+      }
+    }
+
+    // Replace channel mentions <#C123456|channel-name> with #channel-name
+    const channelMentionRegex = /<#([CD][A-Z0-9]+)\|?([^>]*)>/g;
+    processedText = processedText.replace(
+      channelMentionRegex,
+      (match, channelId, channelName) => {
+        return channelName ? `#${channelName}` : `#${channelId}`;
+      }
+    );
+
+    // Clean up other Slack formatting
+    processedText = processedText
+      .replace(/<!here>/g, "@here")
+      .replace(/<!channel>/g, "@channel")
+      .replace(/<!everyone>/g, "@everyone");
+
+    return processedText;
+  }
+
+  private async getChannelName(channelId: string): Promise<string | null> {
+    // Check cache first
+    if (this.channelCache.has(channelId)) {
+      return this.channelCache.get(channelId) || null;
+    }
+
+    return await this.fetchAndCacheChannelName(channelId);
+  }
+
+  private async fetchAndCacheChannelName(
+    channelId: string
+  ): Promise<string | null> {
+    if (!this.webClient) return null;
+
+    try {
+      const result = await this.webClient.conversations.info({
+        channel: channelId,
+      });
+      if (result.ok && result.channel) {
+        const channelName = result.channel.name || channelId;
+        this.channelCache.set(channelId, channelName);
+        this.logger.debug(
+          `Cached channel name: ${channelId} -> ${channelName}`
+        );
+        return channelName;
+      }
+    } catch (error) {
+      this.logger.debug(`Failed to get channel name for ${channelId}:`, error);
+    }
+
+    return null;
+  }
+
+  private async processMessage(message: SlackMessage): Promise<void> {
+    try {
+      // If it's a thread reply, get thread context
+      if (message.thread_ts) {
+        message.context!.threadHistory = await this.getThreadHistory(
+          message.channel,
+          message.thread_ts
+        );
+      }
+
+      // Save to database if available
+      if (this.databaseService) {
+        try {
+          await this.databaseService.saveMessage(message);
+          this.logger.debug(`Message saved to database: ${message.id}`);
+        } catch (dbError) {
+          this.logger.error("Failed to save message to database:", dbError);
+        }
+      }
+
+      // Notify message handlers (for real-time UI updates)
+      this.notifyMessageHandlers(message);
+
+      this.logger.info(
+        `New message processed: ${message.type} from ${message.user} in channel ${message.channel}`
+      );
+    } catch (error) {
+      this.logger.error("Error processing message:", error);
+    }
   }
 
   private setupEventHandlers(): void {
@@ -125,6 +584,11 @@ export class SlackService {
       return;
     }
 
+    // Check if we should monitor this channel/message type
+    if (!(await this.shouldMonitorMessage(event))) {
+      return;
+    }
+
     try {
       // Get user information
       const userInfo = await this.getUserInfo(event.user);
@@ -162,8 +626,22 @@ export class SlackService {
         );
       }
 
-      // Notify message handlers
+      // Save to database if available
+      if (this.databaseService) {
+        try {
+          await this.databaseService.saveMessage(message);
+          this.logger.debug(`Message saved to database: ${message.id}`);
+        } catch (dbError) {
+          this.logger.error("Failed to save message to database:", dbError);
+        }
+      }
+
+      // Notify message handlers (for real-time UI updates)
       this.notifyMessageHandlers(message);
+
+      this.logger.info(
+        `New message processed: ${message.type} from ${message.user} in channel ${message.channel}`
+      );
     } catch (error) {
       this.logger.error("Error processing Slack message:", error);
     }
@@ -173,6 +651,54 @@ export class SlackService {
     // Add logic to determine if we should process bot messages
     // For now, skip all bot messages
     return false;
+  }
+
+  private async shouldMonitorMessage(event: any): Promise<boolean> {
+    if (!this.settings) {
+      // If no settings, monitor everything (fallback)
+      return true;
+    }
+
+    // Check if it's a DM and we should monitor DMs
+    if (event.channel_type === "im" && !this.settings.enableDMs) {
+      return false;
+    }
+
+    // Check if it's an app mention and we should monitor mentions
+    if (event.type === "app_mention" && !this.settings.enableMentions) {
+      return false;
+    }
+
+    // Check if it's a thread reply and we should monitor threads
+    if (event.thread_ts && !this.settings.enableThreads) {
+      return false;
+    }
+
+    // Check channel filtering for public channels
+    if (event.channel_type === "channel" || event.channel_type === "group") {
+      // Get channel name from channel ID (we'll need to implement this)
+      const channelName = await this.getChannelName(event.channel);
+
+      // Check ignored channels
+      if (
+        this.settings.ignoredChannels.length > 0 &&
+        channelName &&
+        this.settings.ignoredChannels.includes(channelName)
+      ) {
+        return false;
+      }
+
+      // Check monitored channels (if specified)
+      if (
+        this.settings.monitoredChannels.length > 0 &&
+        channelName &&
+        !this.settings.monitoredChannels.includes(channelName)
+      ) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private isMessageTooOld(timestamp: string): boolean {

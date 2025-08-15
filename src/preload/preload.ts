@@ -20,6 +20,7 @@ interface ElectronAPI {
     disconnect: () => Promise<{ success: boolean }>;
     sendMessage: (channelId: string, message: string) => Promise<any>;
     testConnection: () => Promise<{ success: boolean }>;
+    forcePoll: () => Promise<{ success: boolean }>;
   };
 
   // Rippling
@@ -43,6 +44,7 @@ interface ElectronAPI {
   db: {
     getMessages: (filters?: any) => Promise<SlackMessage[]>;
     saveMessage: (message: SlackMessage) => Promise<any>;
+    clearMessages: () => Promise<{ success: boolean }>;
   };
 
   // System
@@ -80,6 +82,7 @@ const electronAPI: ElectronAPI = {
     sendMessage: (channelId: string, message: string) =>
       ipcRenderer.invoke("slack:sendMessage", channelId, message),
     testConnection: () => ipcRenderer.invoke("slack:testConnection"),
+    forcePoll: () => ipcRenderer.invoke("slack:forcePoll"),
   },
 
   rippling: {
@@ -102,6 +105,7 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke("db:getMessages", filters),
     saveMessage: (message: SlackMessage) =>
       ipcRenderer.invoke("db:saveMessage", message),
+    clearMessages: () => ipcRenderer.invoke("db:clearMessages"),
   },
 
   system: {

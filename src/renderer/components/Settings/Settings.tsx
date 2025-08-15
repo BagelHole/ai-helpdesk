@@ -9,6 +9,12 @@ export const Settings: React.FC = () => {
   // Form state
   const [formData, setFormData] = useState({
     slackBotToken: "",
+    enableDMs: true,
+    enableMentions: true,
+    enableThreads: true,
+    autoMarkAsRead: false,
+    monitoredChannels: "",
+    ignoredChannels: "",
     ripplingApiKey: "",
     openaiApiKey: "",
     googleApiKey: "",
@@ -29,6 +35,14 @@ export const Settings: React.FC = () => {
           // Update form data
           setFormData({
             slackBotToken: loadedSettings.slack?.botToken || "",
+            enableDMs: loadedSettings.slack?.enableDMs ?? true,
+            enableMentions: loadedSettings.slack?.enableMentions ?? true,
+            enableThreads: loadedSettings.slack?.enableThreads ?? true,
+            autoMarkAsRead: loadedSettings.slack?.autoMarkAsRead ?? false,
+            monitoredChannels:
+              loadedSettings.slack?.monitoredChannels?.join(", ") || "",
+            ignoredChannels:
+              loadedSettings.slack?.ignoredChannels?.join(", ") || "",
             ripplingApiKey: loadedSettings.rippling?.apiKey || "",
             openaiApiKey:
               loadedSettings.ai?.providers?.find((p) => p.type === "openai")
@@ -82,6 +96,12 @@ export const Settings: React.FC = () => {
     if (settings) {
       setFormData({
         slackBotToken: settings.slack?.botToken || "",
+        enableDMs: settings.slack?.enableDMs ?? true,
+        enableMentions: settings.slack?.enableMentions ?? true,
+        enableThreads: settings.slack?.enableThreads ?? true,
+        autoMarkAsRead: settings.slack?.autoMarkAsRead ?? false,
+        monitoredChannels: settings.slack?.monitoredChannels?.join(", ") || "",
+        ignoredChannels: settings.slack?.ignoredChannels?.join(", ") || "",
         ripplingApiKey: settings.rippling?.apiKey || "",
         openaiApiKey:
           settings.ai?.providers?.find((p) => p.type === "openai")?.apiKey ||
@@ -96,7 +116,7 @@ export const Settings: React.FC = () => {
     }
   }, [settings]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -111,12 +131,22 @@ export const Settings: React.FC = () => {
           appToken: settings?.slack?.appToken,
           userToken: settings?.slack?.userToken,
           workspaceId: settings?.slack?.workspaceId,
-          monitoredChannels: settings?.slack?.monitoredChannels || [],
-          ignoredChannels: settings?.slack?.ignoredChannels || [],
-          enableDMs: settings?.slack?.enableDMs ?? true,
-          enableMentions: settings?.slack?.enableMentions ?? true,
-          enableThreads: settings?.slack?.enableThreads ?? true,
-          autoMarkAsRead: settings?.slack?.autoMarkAsRead ?? false,
+          monitoredChannels: formData.monitoredChannels
+            ? formData.monitoredChannels
+                .split(",")
+                .map((ch) => ch.trim())
+                .filter((ch) => ch)
+            : [],
+          ignoredChannels: formData.ignoredChannels
+            ? formData.ignoredChannels
+                .split(",")
+                .map((ch) => ch.trim())
+                .filter((ch) => ch)
+            : [],
+          enableDMs: formData.enableDMs,
+          enableMentions: formData.enableMentions,
+          enableThreads: formData.enableThreads,
+          autoMarkAsRead: formData.autoMarkAsRead,
         },
         rippling: {
           apiKey: formData.ripplingApiKey,
@@ -196,6 +226,7 @@ export const Settings: React.FC = () => {
           .testConnection()
           .then(() => {
             setConnectionStatus("slack", "connected");
+            console.log("✅ Slack monitoring is now active with polling!");
           })
           .catch(() => {
             setConnectionStatus("slack", "error");
@@ -216,8 +247,10 @@ export const Settings: React.FC = () => {
 
       // Test AI providers
       ["openai", "google", "anthropic"].forEach(async (provider) => {
-        const apiKey = formData[`${provider}ApiKey` as keyof typeof formData];
-        if (apiKey) {
+        const apiKey = formData[
+          `${provider}ApiKey` as keyof typeof formData
+        ] as string;
+        if (apiKey && typeof apiKey === "string") {
           setConnectionStatus(provider as any, "connecting");
           try {
             await window.electronAPI.ai.testProvider(provider, apiKey);
@@ -275,6 +308,121 @@ export const Settings: React.FC = () => {
                   }
                 />
               </div>
+
+              {/* Slack Configuration Section */}
+              {formData.slackBotToken && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-4">
+                  <h3 className="text-md font-medium text-blue-900 dark:text-blue-100 flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Slack Monitoring Settings
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={formData.enableDMs}
+                          onChange={(e) =>
+                            handleInputChange("enableDMs", e.target.checked)
+                          }
+                        />
+                        <span className="text-sm text-blue-800 dark:text-blue-200">
+                          Monitor Direct Messages
+                        </span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={formData.enableMentions}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "enableMentions",
+                              e.target.checked
+                            )
+                          }
+                        />
+                        <span className="text-sm text-blue-800 dark:text-blue-200">
+                          Monitor @mentions
+                        </span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={formData.enableThreads}
+                          onChange={(e) =>
+                            handleInputChange("enableThreads", e.target.checked)
+                          }
+                        />
+                        <span className="text-sm text-blue-800 dark:text-blue-200">
+                          Monitor Thread Replies
+                        </span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={formData.autoMarkAsRead}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "autoMarkAsRead",
+                              e.target.checked
+                            )
+                          }
+                        />
+                        <span className="text-sm text-blue-800 dark:text-blue-200">
+                          Auto-mark as read
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                      Channels to Monitor (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="general, it-support, help-desk"
+                      value={formData.monitoredChannels}
+                      onChange={(e) =>
+                        handleInputChange("monitoredChannels", e.target.value)
+                      }
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty to monitor all channels you have access to
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                      Channels to Ignore (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="random, social, off-topic"
+                      value={formData.ignoredChannels}
+                      onChange={(e) =>
+                        handleInputChange("ignoredChannels", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Rippling API Key

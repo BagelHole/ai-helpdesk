@@ -285,6 +285,16 @@ export class DatabaseService {
     }
   }
 
+  public async clearAllMessages(): Promise<void> {
+    try {
+      await this.runQuery("DELETE FROM messages");
+      this.logger.info("All messages cleared from database");
+    } catch (error) {
+      this.logger.error("Failed to clear messages:", error);
+      throw error;
+    }
+  }
+
   // AI Response operations
   public async saveAIResponse(response: AIResponse): Promise<void> {
     try {

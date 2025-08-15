@@ -25,7 +25,7 @@ class Application {
     this.windowManager = new WindowManager();
     this.databaseService = new DatabaseService();
     this.settingsService = new SettingsService();
-    this.slackService = new SlackService();
+    this.slackService = new SlackService(this.databaseService);
     this.ripplingService = new RipplingService();
     this.aiService = new AIService();
 
@@ -104,6 +104,28 @@ class Application {
     ipcMain.handle("settings:update", async (event, settings) => {
       try {
         await this.settingsService.updateSettings(settings);
+
+        // Auto-connect to Slack if bot token is provided
+        if (settings.slack?.botToken && !this.slackService.isSlackConnected()) {
+          try {
+            this.logger.info(
+              `Attempting to auto-connect to Slack with bot token: ${settings.slack.botToken.substring(0, 10)}...`
+            );
+            await this.slackService.connect(
+              settings.slack.botToken,
+              settings.slack.appToken,
+              settings.slack
+            );
+            this.logger.info("Auto-connected to Slack after settings update");
+          } catch (slackError) {
+            this.logger.error("Failed to auto-connect to Slack:", slackError);
+          }
+        } else {
+          this.logger.info(
+            `Slack auto-connect skipped: hasToken=${!!settings.slack?.botToken}, isConnected=${this.slackService.isSlackConnected()}`
+          );
+        }
+
         return { success: true };
       } catch (error) {
         this.logger.error("Failed to update settings:", error);
@@ -114,7 +136,13 @@ class Application {
     // Slack IPC
     ipcMain.handle("slack:connect", async (event, token) => {
       try {
-        await this.slackService.connect(token);
+        // Get current settings to pass Slack configuration
+        const settings = await this.settingsService.getSettings();
+        await this.slackService.connect(
+          token,
+          settings.slack.appToken,
+          settings.slack
+        );
         return { success: true };
       } catch (error) {
         this.logger.error("Failed to connect to Slack:", error);
@@ -148,6 +176,16 @@ class Application {
         return { success: result };
       } catch (error) {
         this.logger.error("Failed to test Slack connection:", error);
+        return { success: false };
+      }
+    });
+
+    ipcMain.handle("slack:forcePoll", async () => {
+      try {
+        await this.slackService.forcePoll();
+        return { success: true };
+      } catch (error) {
+        this.logger.error("Failed to force poll:", error);
         return { success: false };
       }
     });
@@ -227,6 +265,16 @@ class Application {
       }
     });
 
+    ipcMain.handle("db:clearMessages", async () => {
+      try {
+        await this.databaseService.clearAllMessages();
+        return { success: true };
+      } catch (error) {
+        this.logger.error("Failed to clear messages from database:", error);
+        throw error;
+      }
+    });
+
     ipcMain.handle("db:saveMessage", async (event, message) => {
       try {
         return await this.databaseService.saveMessage(message);
@@ -294,6 +342,29 @@ class Application {
     });
   }
 
+  private async autoConnectServices(): Promise<void> {
+    try {
+      const settings = await this.settingsService.getSettings();
+
+      // Auto-connect to Slack if bot token exists
+      if (settings.slack?.botToken && !this.slackService.isSlackConnected()) {
+        try {
+          this.logger.info("Auto-connecting to Slack on app startup...");
+          await this.slackService.connect(
+            settings.slack.botToken,
+            settings.slack.appToken,
+            settings.slack
+          );
+          this.logger.info("Auto-connected to Slack successfully");
+        } catch (error) {
+          this.logger.error("Failed to auto-connect to Slack:", error);
+        }
+      }
+    } catch (error) {
+      this.logger.error("Failed to auto-connect services:", error);
+    }
+  }
+
   private async initialize(): Promise<void> {
     try {
       this.logger.info("Initializing application...");
@@ -303,6 +374,9 @@ class Application {
 
       // Initialize settings
       await this.settingsService.initialize();
+
+      // Auto-connect to Slack if settings exist
+      await this.autoConnectServices();
 
       // Create main window
       this.windowManager.createMainWindow();
