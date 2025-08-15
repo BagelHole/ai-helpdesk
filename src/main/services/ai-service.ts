@@ -118,7 +118,7 @@ export class AIService {
       case "anthropic":
         return "https://api.anthropic.com/v1";
       case "google":
-        return "https://generativelanguage.googleapis.com/v1";
+        return "https://generativelanguage.googleapis.com";
       case "ollama":
         return "http://localhost:11434";
       default:
@@ -143,9 +143,9 @@ export class AIService {
           // Anthropic doesn't have a simple health check, so we'll just verify the client is created
           break;
         case "google":
-          // Test with a simple request
+          // Test with a simple request to list models
           await client.get(
-            `/models?key=${this.providers.get(providerId)?.apiKey}`
+            `/v1beta/models?key=${this.providers.get(providerId)?.apiKey}`
           );
           break;
         case "ollama":
@@ -196,7 +196,7 @@ export class AIService {
           // Just verify we can create a client with the API key
           break;
         case "google":
-          await client.get(`/models?key=${apiKey}`);
+          await client.get(`/v1beta/models?key=${apiKey}`);
           break;
         case "ollama":
           await client.get("/api/tags");
@@ -216,6 +216,9 @@ export class AIService {
 
   public async generateResponse(
     message: SlackMessage,
+    threadMessages?: SlackMessage[],
+    documents?: any[],
+    userDevices?: any[],
     systemPrompt?: SystemPrompt,
     providerId?: string
   ): Promise<AIResponse> {
@@ -241,7 +244,13 @@ export class AIService {
       });
 
       // Build the context for the AI
-      const context = this.buildMessageContext(message, systemPrompt);
+      const context = this.buildMessageContext(
+        message,
+        threadMessages,
+        documents,
+        userDevices,
+        systemPrompt
+      );
 
       // Get the default model for this provider
       const model =
@@ -325,6 +334,9 @@ export class AIService {
 
   private buildMessageContext(
     message: SlackMessage,
+    threadMessages?: SlackMessage[],
+    documents?: any[],
+    userDevices?: any[],
     systemPrompt?: SystemPrompt
   ): string {
     let context = "";
@@ -364,13 +376,51 @@ export class AIService {
     }
 
     // Add thread history if available
-    if (
+    if (threadMessages && threadMessages.length > 0) {
+      context += "\n\nConversation History:\n";
+      threadMessages
+        .sort((a, b) => parseFloat(a.timestamp) - parseFloat(b.timestamp))
+        .forEach((msg, index) => {
+          context += `${index + 1}. [${msg.user}]: ${msg.text}\n`;
+        });
+    } else if (
       message.context?.threadHistory &&
       message.context.threadHistory.length > 0
     ) {
       context += "\n\nConversation History:\n";
       message.context.threadHistory.slice(-5).forEach((msg, index) => {
         context += `${index + 1}. ${msg.text}\n`;
+      });
+    }
+
+    // Add available documentation
+    if (documents && documents.length > 0) {
+      context += "\n\nAvailable IT Documentation:\n";
+      documents.forEach((doc, index) => {
+        context += `${index + 1}. ${doc.name}`;
+        if (doc.content) {
+          context += `:\n${doc.content.substring(0, 1000)}${doc.content.length > 1000 ? "..." : ""}\n\n`;
+        } else {
+          context += ` (${doc.type} file)\n`;
+        }
+      });
+    }
+
+    // Add user device information
+    if (userDevices && userDevices.length > 0) {
+      context += "\n\nUser Device Information:\n";
+      userDevices.forEach((device, index) => {
+        context += `${index + 1}. ${device.assignedTo?.name || "Unknown User"}'s ${device.deviceName}:\n`;
+        context += `   - Model: ${device.model}\n`;
+        context += `   - OS: ${device.operatingSystem} ${device.osVersion}\n`;
+        context += `   - Status: ${device.status}\n`;
+        if (device.applications && device.applications.length > 0) {
+          context += `   - Key Software: ${device.applications
+            .slice(0, 10)
+            .map((app: any) => app.name)
+            .join(", ")}\n`;
+        }
+        context += "\n";
       });
     }
 
@@ -479,7 +529,7 @@ Guidelines:
     apiKey: string
   ): Promise<{ response: string; tokensUsed: number; cost: number }> {
     const response = await client.post(
-      `/models/${model.id}:generateContent?key=${apiKey}`,
+      `/v1beta/models/${model.id}:generateContent?key=${apiKey}`,
       {
         contents: [
           {

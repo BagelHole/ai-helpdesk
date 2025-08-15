@@ -33,7 +33,12 @@ interface ElectronAPI {
 
   // AI
   ai: {
-    generateResponse: (messageData: any) => Promise<AIResponse>;
+    generateResponse: (requestData: {
+      message: SlackMessage;
+      threadMessages?: SlackMessage[];
+      userInput?: string;
+      providerId?: string;
+    }) => Promise<AIResponse>;
     getProviders: () => Promise<any[]>;
     testProvider: (
       provider: string,
@@ -101,8 +106,12 @@ const electronAPI: ElectronAPI = {
   },
 
   ai: {
-    generateResponse: (messageData: any) =>
-      ipcRenderer.invoke("ai:generateResponse", messageData),
+    generateResponse: (requestData: {
+      message: SlackMessage;
+      threadMessages?: SlackMessage[];
+      userInput?: string;
+      providerId?: string;
+    }) => ipcRenderer.invoke("ai:generateResponse", requestData),
     getProviders: () => ipcRenderer.invoke("ai:getProviders"),
     testProvider: (provider: string, apiKey: string) =>
       ipcRenderer.invoke("ai:testProvider", provider, apiKey),

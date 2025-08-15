@@ -222,9 +222,24 @@ class Application {
     });
 
     // AI IPC
-    ipcMain.handle("ai:generateResponse", async (event, messageData) => {
+    ipcMain.handle("ai:generateResponse", async (event, requestData) => {
       try {
-        const response = await this.aiService.generateResponse(messageData);
+        const { message, threadMessages, userInput, providerId } = requestData;
+
+        // Get documents if available
+        const documents: any[] = []; // TODO: Implement document retrieval
+
+        // Get user devices if available
+        const userDevices: any[] = []; // TODO: Implement device retrieval based on message users
+
+        const response = await this.aiService.generateResponse(
+          message,
+          threadMessages,
+          documents,
+          userDevices,
+          undefined, // systemPrompt - can be added later
+          providerId
+        );
         return response;
       } catch (error) {
         this.logger.error("Failed to generate AI response:", error);
@@ -342,6 +357,109 @@ class Application {
     });
   }
 
+  private async initializeAIProviders(): Promise<void> {
+    try {
+      const settings = await this.settingsService.getSettings();
+
+      // Check if AI providers are configured in settings
+      if (!settings.ai?.providers || settings.ai.providers.length === 0) {
+        this.logger.warn(
+          "No AI providers configured in settings - add API keys in the settings page"
+        );
+        return;
+      }
+
+      // Use the providers from settings but enhance them with latest model definitions
+      const enhancedProviders = settings.ai.providers.map((provider) => {
+        const enhanced = { ...provider };
+
+        // Add latest model definitions based on provider type
+        switch (provider.type) {
+          case "openai":
+            enhanced.baseUrl = "https://api.openai.com/v1";
+            enhanced.models = [
+              {
+                id: "gpt-4o",
+                name: "GPT-4o",
+                isDefault: true,
+                maxTokens: 16384,
+                contextWindow: 128000,
+                costPer1kTokens: 0.0025,
+              },
+              {
+                id: "gpt-4o-mini",
+                name: "GPT-4o Mini",
+                isDefault: false,
+                maxTokens: 16384,
+                contextWindow: 128000,
+                costPer1kTokens: 0.00015,
+              },
+            ];
+            break;
+
+          case "google":
+            enhanced.baseUrl = "https://generativelanguage.googleapis.com";
+            enhanced.models = [
+              {
+                id: "gemini-2.5-flash",
+                name: "Gemini 2.5 Flash",
+                isDefault: true,
+                maxTokens: 8192,
+                contextWindow: 1048576,
+                costPer1kTokens: 0.000075,
+              },
+              {
+                id: "gemini-2.5-pro",
+                name: "Gemini 2.5 Pro",
+                isDefault: false,
+                maxTokens: 8192,
+                contextWindow: 2097152,
+                costPer1kTokens: 0.00125,
+              },
+            ];
+            break;
+
+          case "anthropic":
+            enhanced.baseUrl = "https://api.anthropic.com";
+            enhanced.models = [
+              {
+                id: "claude-3-5-sonnet-20241022",
+                name: "Claude 3.5 Sonnet",
+                isDefault: true,
+                maxTokens: 8192,
+                contextWindow: 200000,
+                costPer1kTokens: 0.003,
+              },
+              {
+                id: "claude-3-5-haiku-20241022",
+                name: "Claude 3.5 Haiku",
+                isDefault: false,
+                maxTokens: 8192,
+                contextWindow: 200000,
+                costPer1kTokens: 0.0008,
+              },
+            ];
+            break;
+        }
+
+        return enhanced;
+      });
+
+      if (enhancedProviders.length > 0) {
+        await this.aiService.initialize(enhancedProviders);
+        this.logger.info(
+          `Initialized AI service with ${enhancedProviders.length} providers: ${enhancedProviders.map((p) => p.name).join(", ")}`
+        );
+      } else {
+        this.logger.warn(
+          "No enabled AI providers found - configure API keys in settings"
+        );
+      }
+    } catch (error) {
+      this.logger.error("Failed to initialize AI providers:", error);
+    }
+  }
+
   private async autoConnectServices(): Promise<void> {
     try {
       const settings = await this.settingsService.getSettings();
@@ -374,6 +492,9 @@ class Application {
 
       // Initialize settings
       await this.settingsService.initialize();
+
+      // Initialize AI service with available providers
+      await this.initializeAIProviders();
 
       // Auto-connect to Slack if settings exist
       await this.autoConnectServices();

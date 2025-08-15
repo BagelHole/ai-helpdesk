@@ -181,11 +181,10 @@ export class SlackService {
           `Found ${response.channels.length} total conversations`
         );
 
-        // Log all channel names for debugging
-        const allChannelNames = response.channels
-          .map((c: any) => c.name)
-          .filter(Boolean);
-        this.logger.info(`All channel names: ${allChannelNames.join(", ")}`);
+        // Log channel count instead of all names to reduce log verbosity
+        this.logger.debug(
+          `Found ${response.channels.length} total channels available`
+        );
 
         for (const channel of response.channels) {
           const shouldMonitor = this.shouldMonitorConversation(channel);

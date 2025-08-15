@@ -9,6 +9,7 @@ export const MessageDetail: React.FC = () => {
   const navigate = useNavigate();
   const [aiInput, setAiInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
 
   // Fetch the specific message
   const { data: message, isLoading } = useQuery<SlackMessage | null>(
@@ -53,12 +54,23 @@ export const MessageDetail: React.FC = () => {
     if (!message || !aiInput.trim()) return;
 
     setIsGenerating(true);
+    setAiResponse(null);
+
     try {
-      // TODO: Implement AI response generation
-      console.log("Generating AI response for:", aiInput);
-      // const response = await window.electronAPI.ai.generateResponse(message, aiInput);
+      const response = await window.electronAPI.ai.generateResponse({
+        message,
+        threadMessages: threadMessages || [],
+        userInput: aiInput,
+        // TODO: Add providerId selection from UI
+      });
+
+      setAiResponse(response.response);
+      console.log("AI response generated:", response);
     } catch (error) {
       console.error("Failed to generate AI response:", error);
+      setAiResponse(
+        "Sorry, I encountered an error while generating a response. Please try again."
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -284,12 +296,43 @@ export const MessageDetail: React.FC = () => {
                 </button>
               </div>
 
-              {/* TODO: Display AI responses here */}
-              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  AI responses will appear here after generation.
-                </p>
-              </div>
+              {/* AI Response Display */}
+              {aiResponse && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    AI Suggested Response
+                  </h4>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                      {aiResponse}
+                    </p>
+                    <div className="mt-3 flex space-x-2">
+                      <button
+                        onClick={() =>
+                          navigator.clipboard.writeText(aiResponse)
+                        }
+                        className="btn btn-sm btn-secondary"
+                      >
+                        Copy Response
+                      </button>
+                      <button
+                        onClick={() => setAiResponse(null)}
+                        className="btn btn-sm btn-secondary"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!aiResponse && !isGenerating && (
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    AI responses will appear here after generation.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
