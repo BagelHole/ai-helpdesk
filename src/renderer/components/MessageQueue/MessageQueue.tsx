@@ -1,8 +1,11 @@
 import React from "react";
 import { useQuery } from "react-query";
+import { useNavigate } from "react-router-dom";
 import { SlackMessage } from "@shared/types";
 
 export const MessageQueue: React.FC = () => {
+  const navigate = useNavigate();
+
   // Fetch messages from database
   const {
     data: messages,
@@ -135,7 +138,8 @@ export const MessageQueue: React.FC = () => {
           {messages?.map((message) => (
             <div
               key={message.id}
-              className="card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+              className="card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => navigate(`/message/${message.id}`)}
             >
               <div className="card-body">
                 <div className="flex justify-between items-start mb-3">

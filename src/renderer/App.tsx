@@ -5,10 +5,11 @@ import toast from "react-hot-toast";
 
 // Components
 import { Layout } from "./components/Layout/Layout";
-import { Dashboard } from "./components/Dashboard/Dashboard";
 import { MessageQueue } from "./components/MessageQueue/MessageQueue";
+import { MessageDetail } from "./components/MessageDetail/MessageDetail";
+import { Docs } from "./components/Docs/Docs";
+import { Devices } from "./components/Devices/Devices";
 import { Settings } from "./components/Settings/Settings";
-import { Analytics } from "./components/Analytics/Analytics";
 import { LoadingScreen } from "./components/LoadingScreen/LoadingScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary/ErrorBoundary";
 
@@ -186,9 +187,10 @@ export const App: React.FC = () => {
       <div className="app min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="messages" element={<MessageQueue />} />
-            <Route path="analytics" element={<Analytics />} />
+            <Route index element={<MessageQueue />} />
+            <Route path="message/:messageId" element={<MessageDetail />} />
+            <Route path="docs" element={<Docs />} />
+            <Route path="devices" element={<Devices />} />
             <Route path="settings/*" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

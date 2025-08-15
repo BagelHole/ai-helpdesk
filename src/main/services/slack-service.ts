@@ -347,6 +347,18 @@ export class SlackService {
             await this.processMessage(processedMessage);
           }
 
+          // If this message has replies, fetch and process them too
+          if (message.reply_count && message.reply_count > 0) {
+            this.logger.info(
+              `📝 Found thread with ${message.reply_count} replies, fetching thread messages...`
+            );
+            await this.fetchAndProcessThreadReplies(
+              conversationId,
+              message.ts!,
+              type
+            );
+          }
+
           // Update last polled timestamp
           if (
             message.ts &&
@@ -506,16 +518,62 @@ export class SlackService {
     return null;
   }
 
+  private async fetchAndProcessThreadReplies(
+    channelId: string,
+    threadTs: string,
+    channelType: string
+  ): Promise<void> {
+    if (!this.webClient) return;
+
+    try {
+      const result = await this.webClient.conversations.replies({
+        channel: channelId,
+        ts: threadTs,
+        limit: 50,
+      });
+
+      if (result.ok && result.messages) {
+        // Skip the first message (that's the original message we already processed)
+        const threadReplies = result.messages.slice(1);
+
+        this.logger.info(
+          `📨 Found ${threadReplies.length} thread replies for ${threadTs}`
+        );
+
+        for (const reply of threadReplies) {
+          // Skip bot messages and message subtypes we don't want
+          if (reply.bot_id || (reply as any).subtype) {
+            this.logger.debug(
+              `Skipping thread reply: bot_id=${reply.bot_id}, subtype=${(reply as any).subtype}`
+            );
+            continue;
+          }
+
+          // Convert to our message format and process
+          const processedReply = await this.convertToSlackMessage(
+            reply,
+            channelId,
+            channelType
+          );
+          if (processedReply) {
+            this.logger.info(
+              `✅ Processing thread reply from ${processedReply.user}: ${processedReply.text.substring(0, 50)}...`
+            );
+            await this.processMessage(processedReply);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.debug(
+        `Could not fetch thread replies for ${threadTs}:`,
+        error
+      );
+      // Don't throw error, just log and continue
+    }
+  }
+
   private async processMessage(message: SlackMessage): Promise<void> {
     try {
-      // If it's a thread reply, get thread context
-      if (message.thread_ts) {
-        message.context!.threadHistory = await this.getThreadHistory(
-          message.channel,
-          message.thread_ts
-        );
-      }
-
       // Save to database if available
       if (this.databaseService) {
         try {
@@ -860,7 +918,11 @@ export class SlackService {
         }));
       }
     } catch (error) {
-      this.logger.error("Error getting thread history:", error);
+      this.logger.debug(
+        `Could not fetch thread history for channel ${channel}, thread ${threadTs}:`,
+        error
+      );
+      // Don't throw error, just return empty array to avoid breaking message processing
     }
 
     return [];

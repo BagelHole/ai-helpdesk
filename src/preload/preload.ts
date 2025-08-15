@@ -28,6 +28,7 @@ interface ElectronAPI {
     connect: (apiKey: string) => Promise<{ success: boolean }>;
     getUserInfo: (email: string) => Promise<RipplingUser>;
     testConnection: () => Promise<{ success: boolean }>;
+    getDevices: () => Promise<any[]>;
   };
 
   // AI
@@ -45,6 +46,12 @@ interface ElectronAPI {
     getMessages: (filters?: any) => Promise<SlackMessage[]>;
     saveMessage: (message: SlackMessage) => Promise<any>;
     clearMessages: () => Promise<{ success: boolean }>;
+  };
+  docs: {
+    getDocuments: () => Promise<any[]>;
+    uploadDocument: (file: File) => Promise<any>;
+    deleteDocument: (id: string) => Promise<any>;
+    viewDocument: (id: string) => Promise<any>;
   };
 
   // System
@@ -90,6 +97,7 @@ const electronAPI: ElectronAPI = {
     getUserInfo: (email: string) =>
       ipcRenderer.invoke("rippling:getUserInfo", email),
     testConnection: () => ipcRenderer.invoke("rippling:testConnection"),
+    getDevices: () => ipcRenderer.invoke("rippling:getDevices"),
   },
 
   ai: {
@@ -106,6 +114,15 @@ const electronAPI: ElectronAPI = {
     saveMessage: (message: SlackMessage) =>
       ipcRenderer.invoke("db:saveMessage", message),
     clearMessages: () => ipcRenderer.invoke("db:clearMessages"),
+  },
+
+  docs: {
+    getDocuments: () => ipcRenderer.invoke("docs:getDocuments"),
+    uploadDocument: (file: File) =>
+      ipcRenderer.invoke("docs:uploadDocument", file),
+    deleteDocument: (id: string) =>
+      ipcRenderer.invoke("docs:deleteDocument", id),
+    viewDocument: (id: string) => ipcRenderer.invoke("docs:viewDocument", id),
   },
 
   system: {

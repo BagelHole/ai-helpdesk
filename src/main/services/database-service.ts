@@ -247,6 +247,16 @@ export class DatabaseService {
       `;
       const params: any[] = [];
 
+      // By default, exclude thread replies from the main message queue
+      // Show messages where thread_ts is NULL OR where thread_ts equals the message ID (thread starter)
+      if (
+        !filters?.includeThreadReplies &&
+        !filters?.thread_ts &&
+        !filters?.messageId
+      ) {
+        sql += " AND (thread_ts IS NULL OR thread_ts = slack_id)";
+      }
+
       if (filters?.status) {
         sql += " AND status = ?";
         params.push(filters.status);
@@ -260,6 +270,16 @@ export class DatabaseService {
       if (filters?.category) {
         sql += " AND category = ?";
         params.push(filters.category);
+      }
+
+      if (filters?.messageId) {
+        sql += " AND slack_id = ?";
+        params.push(filters.messageId);
+      }
+
+      if (filters?.thread_ts) {
+        sql += " AND thread_ts = ?";
+        params.push(filters.thread_ts);
       }
 
       if (filters?.limit) {
