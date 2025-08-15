@@ -41,7 +41,9 @@ interface AppState {
   connections: {
     slack: "disconnected" | "connecting" | "connected" | "error";
     rippling: "disconnected" | "connecting" | "connected" | "error";
-    ai: "disconnected" | "connecting" | "connected" | "error";
+    openai: "disconnected" | "connecting" | "connected" | "error";
+    google: "disconnected" | "connecting" | "connected" | "error";
+    anthropic: "disconnected" | "connecting" | "connected" | "error";
   };
 
   // Actions
@@ -78,7 +80,9 @@ const initialState = {
   connections: {
     slack: "disconnected" as const,
     rippling: "disconnected" as const,
-    ai: "disconnected" as const,
+    openai: "disconnected" as const,
+    google: "disconnected" as const,
+    anthropic: "disconnected" as const,
   },
 };
 
@@ -272,5 +276,9 @@ export const useIsSlackConnected = () =>
   useAppStore((state) => state.connections.slack === "connected");
 export const useIsRipplingConnected = () =>
   useAppStore((state) => state.connections.rippling === "connected");
-export const useIsAIConnected = () =>
-  useAppStore((state) => state.connections.ai === "connected");
+export const useIsOpenAIConnected = () =>
+  useAppStore((state) => state.connections.openai === "connected");
+export const useIsGoogleConnected = () =>
+  useAppStore((state) => state.connections.google === "connected");
+export const useIsAnthropicConnected = () =>
+  useAppStore((state) => state.connections.anthropic === "connected");

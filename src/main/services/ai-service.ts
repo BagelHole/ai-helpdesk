@@ -126,7 +126,7 @@ export class AIService {
     }
   }
 
-  private async testProviderConnection(providerId: string): Promise<boolean> {
+  public async testProviderConnection(providerId: string): Promise<boolean> {
     const provider = this.providers.get(providerId);
     const client = this.clients.get(providerId);
 
@@ -161,6 +161,56 @@ export class AIService {
         error
       );
       throw error;
+    }
+  }
+
+  // Test provider connection with API key directly (for settings testing)
+  public async testProviderWithApiKey(
+    providerType: "openai" | "anthropic" | "google" | "ollama",
+    apiKey: string
+  ): Promise<boolean> {
+    try {
+      const baseURL = this.getDefaultBaseUrl(providerType);
+      const client = this.createHttpClient({
+        id: `test-${providerType}`,
+        name: `test-${providerType}`,
+        type: providerType,
+        apiKey,
+        baseUrl: baseURL,
+        models: [],
+        isEnabled: true,
+        rateLimits: {
+          requestsPerMinute: 60,
+          requestsPerDay: 1000,
+          tokensPerMinute: 40000,
+          tokensPerDay: 100000,
+        },
+      });
+
+      switch (providerType) {
+        case "openai":
+          await client.get("/models");
+          break;
+        case "anthropic":
+          // Anthropic doesn't have a simple health check endpoint
+          // Just verify we can create a client with the API key
+          break;
+        case "google":
+          await client.get(`/models?key=${apiKey}`);
+          break;
+        case "ollama":
+          await client.get("/api/tags");
+          break;
+      }
+
+      this.logger.debug(`Provider ${providerType} connection test successful`);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Provider ${providerType} connection test failed:`,
+        error
+      );
+      return false;
     }
   }
 

@@ -1,6 +1,252 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useAppStore } from "../../hooks/useAppStore";
+import { AppSettings } from "@shared/types";
 
 export const Settings: React.FC = () => {
+  const { connections, settings, updateSettings, setConnectionStatus } =
+    useAppStore();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    slackBotToken: "",
+    ripplingApiKey: "",
+    openaiApiKey: "",
+    googleApiKey: "",
+    anthropicApiKey: "",
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load settings from backend when component mounts
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const loadedSettings = await window.electronAPI.settings.get();
+        if (loadedSettings) {
+          // Update the store
+          updateSettings(loadedSettings);
+
+          // Update form data
+          setFormData({
+            slackBotToken: loadedSettings.slack?.botToken || "",
+            ripplingApiKey: loadedSettings.rippling?.apiKey || "",
+            openaiApiKey:
+              loadedSettings.ai?.providers?.find((p) => p.type === "openai")
+                ?.apiKey || "",
+            googleApiKey:
+              loadedSettings.ai?.providers?.find((p) => p.type === "google")
+                ?.apiKey || "",
+            anthropicApiKey:
+              loadedSettings.ai?.providers?.find((p) => p.type === "anthropic")
+                ?.apiKey || "",
+          });
+
+          // Test connections for loaded API keys
+          await testLoadedConnections(loadedSettings);
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      }
+    };
+
+    loadSettings();
+  }, [updateSettings]);
+
+  // Test connections when settings are loaded
+  const testLoadedConnections = async (loadedSettings: AppSettings) => {
+    // Test AI providers (main concern for Settings page)
+    if (loadedSettings.ai?.providers) {
+      for (const provider of loadedSettings.ai.providers) {
+        if (provider.apiKey) {
+          const connectionKey = provider.type as
+            | "openai"
+            | "google"
+            | "anthropic";
+          setConnectionStatus(connectionKey, "connecting");
+          try {
+            await window.electronAPI.ai.testProvider(
+              provider.type,
+              provider.apiKey
+            );
+            setConnectionStatus(connectionKey, "connected");
+          } catch {
+            setConnectionStatus(connectionKey, "error");
+          }
+        }
+      }
+    }
+  };
+
+  // Also update form when settings change in store
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        slackBotToken: settings.slack?.botToken || "",
+        ripplingApiKey: settings.rippling?.apiKey || "",
+        openaiApiKey:
+          settings.ai?.providers?.find((p) => p.type === "openai")?.apiKey ||
+          "",
+        googleApiKey:
+          settings.ai?.providers?.find((p) => p.type === "google")?.apiKey ||
+          "",
+        anthropicApiKey:
+          settings.ai?.providers?.find((p) => p.type === "anthropic")?.apiKey ||
+          "",
+      });
+    }
+  }, [settings]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+
+    try {
+      // Save to settings via IPC
+      const result = await window.electronAPI.settings.update({
+        slack: {
+          botToken: formData.slackBotToken,
+          appToken: settings?.slack?.appToken,
+          userToken: settings?.slack?.userToken,
+          workspaceId: settings?.slack?.workspaceId,
+          monitoredChannels: settings?.slack?.monitoredChannels || [],
+          ignoredChannels: settings?.slack?.ignoredChannels || [],
+          enableDMs: settings?.slack?.enableDMs ?? true,
+          enableMentions: settings?.slack?.enableMentions ?? true,
+          enableThreads: settings?.slack?.enableThreads ?? true,
+          autoMarkAsRead: settings?.slack?.autoMarkAsRead ?? false,
+        },
+        rippling: {
+          apiKey: formData.ripplingApiKey,
+          baseUrl: settings?.rippling?.baseUrl,
+          syncInterval: settings?.rippling?.syncInterval ?? 60,
+          cacheExpiry: settings?.rippling?.cacheExpiry ?? 24,
+          enableUserSync: settings?.rippling?.enableUserSync ?? true,
+          enableDeviceSync: settings?.rippling?.enableDeviceSync ?? true,
+          enableApplicationSync:
+            settings?.rippling?.enableApplicationSync ?? true,
+        },
+        ai: {
+          defaultProvider: settings?.ai?.defaultProvider || "openai",
+          systemPrompts: settings?.ai?.systemPrompts || [],
+          defaultPrompt: settings?.ai?.defaultPrompt || "default",
+          autoResponseEnabled: settings?.ai?.autoResponseEnabled ?? false,
+          confidenceThreshold: settings?.ai?.confidenceThreshold ?? 0.8,
+          maxTokensPerResponse: settings?.ai?.maxTokensPerResponse ?? 1000,
+          temperature: settings?.ai?.temperature ?? 0.7,
+          enableLocalModels: settings?.ai?.enableLocalModels ?? false,
+          ollamaUrl: settings?.ai?.ollamaUrl,
+          providers: [
+            {
+              id: "openai",
+              name: "OpenAI",
+              type: "openai" as const,
+              apiKey: formData.openaiApiKey,
+              isEnabled: !!formData.openaiApiKey,
+              models: [],
+              rateLimits: {
+                requestsPerMinute: 60,
+                requestsPerDay: 1000,
+                tokensPerMinute: 40000,
+                tokensPerDay: 100000,
+              },
+            },
+            {
+              id: "google",
+              name: "Google Gemini",
+              type: "google" as const,
+              apiKey: formData.googleApiKey,
+              isEnabled: !!formData.googleApiKey,
+              models: [],
+              rateLimits: {
+                requestsPerMinute: 60,
+                requestsPerDay: 1000,
+                tokensPerMinute: 32000,
+                tokensPerDay: 50000,
+              },
+            },
+            {
+              id: "anthropic",
+              name: "Anthropic Claude",
+              type: "anthropic" as const,
+              apiKey: formData.anthropicApiKey,
+              isEnabled: !!formData.anthropicApiKey,
+              models: [],
+              rateLimits: {
+                requestsPerMinute: 50,
+                requestsPerDay: 1000,
+                tokensPerMinute: 40000,
+                tokensPerDay: 100000,
+              },
+            },
+          ].filter((p) => p.isEnabled),
+        },
+      });
+
+      // Update local state - no need to call updateSettings since backend handles it
+      console.log("Settings saved successfully:", result);
+
+      // Test connections for enabled providers
+      if (formData.slackBotToken) {
+        setConnectionStatus("slack", "connecting");
+        // Test Slack connection - this would be implemented in the main process
+        window.electronAPI.slack
+          .testConnection()
+          .then(() => {
+            setConnectionStatus("slack", "connected");
+          })
+          .catch(() => {
+            setConnectionStatus("slack", "error");
+          });
+      }
+
+      if (formData.ripplingApiKey) {
+        setConnectionStatus("rippling", "connecting");
+        window.electronAPI.rippling
+          .testConnection()
+          .then(() => {
+            setConnectionStatus("rippling", "connected");
+          })
+          .catch(() => {
+            setConnectionStatus("rippling", "error");
+          });
+      }
+
+      // Test AI providers
+      ["openai", "google", "anthropic"].forEach(async (provider) => {
+        const apiKey = formData[`${provider}ApiKey` as keyof typeof formData];
+        if (apiKey) {
+          setConnectionStatus(provider as any, "connecting");
+          try {
+            await window.electronAPI.ai.testProvider(provider, apiKey);
+            setConnectionStatus(provider as any, "connected");
+          } catch {
+            setConnectionStatus(provider as any, "error");
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case "connected":
+        return <span className="badge badge-success">Connected</span>;
+      case "connecting":
+        return <span className="badge badge-warning">Connecting...</span>;
+      case "error":
+        return <span className="badge badge-error">Error</span>;
+      default:
+        return <span className="badge badge-secondary">Disconnected</span>;
+    }
+  };
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
@@ -23,6 +269,10 @@ export const Settings: React.FC = () => {
                   type="password"
                   className="input"
                   placeholder="xoxb-your-bot-token"
+                  value={formData.slackBotToken}
+                  onChange={(e) =>
+                    handleInputChange("slackBotToken", e.target.value)
+                  }
                 />
               </div>
               <div>
@@ -33,6 +283,10 @@ export const Settings: React.FC = () => {
                   type="password"
                   className="input"
                   placeholder="Enter your Rippling API key"
+                  value={formData.ripplingApiKey}
+                  onChange={(e) =>
+                    handleInputChange("ripplingApiKey", e.target.value)
+                  }
                 />
               </div>
               <div>
@@ -43,6 +297,10 @@ export const Settings: React.FC = () => {
                   type="password"
                   className="input"
                   placeholder="sk-your-openai-key"
+                  value={formData.openaiApiKey}
+                  onChange={(e) =>
+                    handleInputChange("openaiApiKey", e.target.value)
+                  }
                 />
               </div>
               <div>
@@ -53,6 +311,10 @@ export const Settings: React.FC = () => {
                   type="password"
                   className="input"
                   placeholder="Your Google AI Studio API key"
+                  value={formData.googleApiKey}
+                  onChange={(e) =>
+                    handleInputChange("googleApiKey", e.target.value)
+                  }
                 />
               </div>
               <div>
@@ -63,11 +325,21 @@ export const Settings: React.FC = () => {
                   type="password"
                   className="input"
                   placeholder="sk-ant-your-anthropic-key"
+                  value={formData.anthropicApiKey}
+                  onChange={(e) =>
+                    handleInputChange("anthropicApiKey", e.target.value)
+                  }
                 />
               </div>
             </div>
             <div className="card-footer">
-              <button className="btn btn-primary">Save Configuration</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save Configuration"}
+              </button>
             </div>
           </div>
         </div>
@@ -83,19 +355,31 @@ export const Settings: React.FC = () => {
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Slack
                 </span>
-                <span className="badge badge-secondary">Disconnected</span>
+                {getStatusDisplay(connections.slack)}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Rippling
                 </span>
-                <span className="badge badge-secondary">Disconnected</span>
+                {getStatusDisplay(connections.rippling)}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   OpenAI
                 </span>
-                <span className="badge badge-secondary">Disconnected</span>
+                {getStatusDisplay(connections.openai)}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Google Gemini
+                </span>
+                {getStatusDisplay(connections.google)}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Anthropic Claude
+                </span>
+                {getStatusDisplay(connections.anthropic)}
               </div>
             </div>
           </div>

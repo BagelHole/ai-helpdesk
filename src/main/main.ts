@@ -142,6 +142,16 @@ class Application {
       }
     });
 
+    ipcMain.handle("slack:testConnection", async () => {
+      try {
+        const result = await this.slackService.testConnection();
+        return { success: result };
+      } catch (error) {
+        this.logger.error("Failed to test Slack connection:", error);
+        return { success: false };
+      }
+    });
+
     // Rippling IPC
     ipcMain.handle("rippling:connect", async (event, apiKey) => {
       try {
@@ -163,6 +173,16 @@ class Application {
       }
     });
 
+    ipcMain.handle("rippling:testConnection", async () => {
+      try {
+        const result = await this.ripplingService.testConnection();
+        return { success: result };
+      } catch (error) {
+        this.logger.error("Failed to test Rippling connection:", error);
+        return { success: false };
+      }
+    });
+
     // AI IPC
     ipcMain.handle("ai:generateResponse", async (event, messageData) => {
       try {
@@ -180,6 +200,20 @@ class Application {
       } catch (error) {
         this.logger.error("Failed to get AI providers:", error);
         throw error;
+      }
+    });
+
+    ipcMain.handle("ai:testProvider", async (event, provider, apiKey) => {
+      try {
+        // Use the new method that tests with API key directly
+        const result = await this.aiService.testProviderWithApiKey(
+          provider,
+          apiKey
+        );
+        return { success: result };
+      } catch (error) {
+        this.logger.error("Failed to test AI provider:", error);
+        return { success: false };
       }
     });
 

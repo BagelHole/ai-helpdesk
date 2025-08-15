@@ -19,18 +19,24 @@ interface ElectronAPI {
     connect: (token: string) => Promise<{ success: boolean }>;
     disconnect: () => Promise<{ success: boolean }>;
     sendMessage: (channelId: string, message: string) => Promise<any>;
+    testConnection: () => Promise<{ success: boolean }>;
   };
 
   // Rippling
   rippling: {
     connect: (apiKey: string) => Promise<{ success: boolean }>;
     getUserInfo: (email: string) => Promise<RipplingUser>;
+    testConnection: () => Promise<{ success: boolean }>;
   };
 
   // AI
   ai: {
     generateResponse: (messageData: any) => Promise<AIResponse>;
     getProviders: () => Promise<any[]>;
+    testProvider: (
+      provider: string,
+      apiKey: string
+    ) => Promise<{ success: boolean }>;
   };
 
   // Database
@@ -73,18 +79,22 @@ const electronAPI: ElectronAPI = {
     disconnect: () => ipcRenderer.invoke("slack:disconnect"),
     sendMessage: (channelId: string, message: string) =>
       ipcRenderer.invoke("slack:sendMessage", channelId, message),
+    testConnection: () => ipcRenderer.invoke("slack:testConnection"),
   },
 
   rippling: {
     connect: (apiKey: string) => ipcRenderer.invoke("rippling:connect", apiKey),
     getUserInfo: (email: string) =>
       ipcRenderer.invoke("rippling:getUserInfo", email),
+    testConnection: () => ipcRenderer.invoke("rippling:testConnection"),
   },
 
   ai: {
     generateResponse: (messageData: any) =>
       ipcRenderer.invoke("ai:generateResponse", messageData),
     getProviders: () => ipcRenderer.invoke("ai:getProviders"),
+    testProvider: (provider: string, apiKey: string) =>
+      ipcRenderer.invoke("ai:testProvider", provider, apiKey),
   },
 
   db: {

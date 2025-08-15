@@ -83,7 +83,9 @@ export const Sidebar: React.FC = () => {
           <div className={`${sidebarCollapsed ? "hidden" : "block"} space-y-2`}>
             <ConnectionStatus service="slack" />
             <ConnectionStatus service="rippling" />
-            <ConnectionStatus service="ai" />
+            <ConnectionStatus service="openai" />
+            <ConnectionStatus service="google" />
+            <ConnectionStatus service="anthropic" />
           </div>
         </div>
       </div>
@@ -92,7 +94,7 @@ export const Sidebar: React.FC = () => {
 };
 
 export const ConnectionStatus: React.FC<{
-  service: "slack" | "rippling" | "ai";
+  service: "slack" | "rippling" | "openai" | "google" | "anthropic";
 }> = ({ service }) => {
   const connections = useAppStore((state) => state.connections);
   const status = connections[service];

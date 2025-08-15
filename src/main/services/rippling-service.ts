@@ -74,7 +74,7 @@ export class RipplingService {
     return this.isConnected;
   }
 
-  private async testConnection(): Promise<boolean> {
+  public async testConnection(): Promise<boolean> {
     if (!this.client) {
       throw new Error("Rippling client not initialized");
     }

@@ -21,8 +21,59 @@ import { AppSettings } from "@shared/types";
 
 export const App: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
-  const { settings, updateSettings } = useAppStore();
+  const { settings, updateSettings, setConnectionStatus } = useAppStore();
   const { theme, toggleTheme } = useTheme();
+
+  // Test saved connections on app startup
+  const testSavedConnections = async (loadedSettings: AppSettings) => {
+    try {
+      // Test Slack connection
+      if (loadedSettings.slack?.botToken) {
+        setConnectionStatus("slack", "connecting");
+        try {
+          await window.electronAPI.slack.testConnection();
+          setConnectionStatus("slack", "connected");
+        } catch {
+          setConnectionStatus("slack", "error");
+        }
+      }
+
+      // Test Rippling connection
+      if (loadedSettings.rippling?.apiKey) {
+        setConnectionStatus("rippling", "connecting");
+        try {
+          await window.electronAPI.rippling.testConnection();
+          setConnectionStatus("rippling", "connected");
+        } catch {
+          setConnectionStatus("rippling", "error");
+        }
+      }
+
+      // Test AI providers
+      if (loadedSettings.ai?.providers) {
+        for (const provider of loadedSettings.ai.providers) {
+          if (provider.apiKey) {
+            const connectionKey = provider.type as
+              | "openai"
+              | "google"
+              | "anthropic";
+            setConnectionStatus(connectionKey, "connecting");
+            try {
+              await window.electronAPI.ai.testProvider(
+                provider.type,
+                provider.apiKey
+              );
+              setConnectionStatus(connectionKey, "connected");
+            } catch {
+              setConnectionStatus(connectionKey, "error");
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to test connections:", error);
+    }
+  };
 
   // Load initial settings
   const {
@@ -36,8 +87,12 @@ export const App: React.FC = () => {
       return result;
     },
     {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         updateSettings(data);
+
+        // Test connections for saved API keys
+        await testSavedConnections(data);
+
         setIsInitialized(true);
       },
       onError: (error) => {
