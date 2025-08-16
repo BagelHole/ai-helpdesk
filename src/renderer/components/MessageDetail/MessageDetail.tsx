@@ -449,52 +449,6 @@ export const MessageDetail: React.FC = () => {
                             <div
                               key={attachment.id}
                               className="flex items-center space-x-2 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md"
-                              draggable
-                              onDragStart={async (e) => {
-                                try {
-                                  // Get the actual file content for drag & drop
-                                  const fileData =
-                                    await window.electronAPI.docs.getDocumentFile(
-                                      attachment.documentId
-                                    );
-                                  if (fileData) {
-                                    // Create a file object for drag & drop
-                                    const file = new File(
-                                      [fileData.content],
-                                      attachment.name,
-                                      {
-                                        type:
-                                          attachment.type === "pdf"
-                                            ? "application/pdf"
-                                            : "text/plain",
-                                      }
-                                    );
-
-                                    // Set file data for drag & drop
-                                    e.dataTransfer.items.add(file);
-                                    e.dataTransfer.setData(
-                                      "text/plain",
-                                      attachment.name
-                                    );
-                                  } else {
-                                    // Fallback to text
-                                    e.dataTransfer.setData(
-                                      "text/plain",
-                                      `📎 ${attachment.name}`
-                                    );
-                                  }
-                                } catch (error) {
-                                  console.error(
-                                    "Failed to prepare file for drag:",
-                                    error
-                                  );
-                                  e.dataTransfer.setData(
-                                    "text/plain",
-                                    `📎 ${attachment.name}`
-                                  );
-                                }
-                              }}
-                              title="Drag to attach to Slack message"
                             >
                               <div className="flex-shrink-0">
                                 {attachment.type === "pdf" ? (
@@ -532,47 +486,82 @@ export const MessageDetail: React.FC = () => {
                                   {attachment.type.toUpperCase()}
                                 </p>
                               </div>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const result =
-                                      await window.electronAPI.docs.viewDocument(
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await window.electronAPI.docs.showInFolder(
                                         attachment.documentId
                                       );
-                                    console.log(
-                                      "Document view result:",
-                                      result
-                                    );
-                                  } catch (error) {
-                                    console.error(
-                                      "Failed to view document:",
-                                      error
-                                    );
-                                  }
-                                }}
-                                className="flex-shrink-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                title="View document"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                                      console.log(
+                                        "Opened file location in explorer"
+                                      );
+                                    } catch (error) {
+                                      console.error(
+                                        "Failed to show in folder:",
+                                        error
+                                      );
+                                    }
+                                  }}
+                                  className="flex-shrink-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                                  title="Show in Finder/Explorer (then drag from there to Slack)"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                  />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const result =
+                                        await window.electronAPI.docs.viewDocument(
+                                          attachment.documentId
+                                        );
+                                      console.log(
+                                        "Document view result:",
+                                        result
+                                      );
+                                    } catch (error) {
+                                      console.error(
+                                        "Failed to view document:",
+                                        error
+                                      );
+                                    }
+                                  }}
+                                  className="flex-shrink-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  title="View document"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>

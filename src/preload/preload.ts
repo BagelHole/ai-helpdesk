@@ -73,6 +73,8 @@ interface ElectronAPI {
     getDocumentFile: (
       id: string
     ) => Promise<{ content: ArrayBuffer; name: string; type: string } | null>;
+    getDocumentPath: (id: string) => Promise<string | null>;
+    showInFolder: (id: string) => Promise<{ success: boolean }>;
   };
 
   // System
@@ -80,6 +82,7 @@ interface ElectronAPI {
     openExternal: (url: string) => Promise<{ success: boolean }>;
     showSaveDialog: (options: any) => Promise<any>;
     showOpenDialog: (options: any) => Promise<any>;
+    startNativeDrag: (filePath: string) => Promise<void>;
   };
 
   // Window
@@ -161,6 +164,9 @@ const electronAPI: ElectronAPI = {
     viewDocument: (id: string) => ipcRenderer.invoke("docs:viewDocument", id),
     getDocumentFile: (id: string) =>
       ipcRenderer.invoke("docs:getDocumentFile", id),
+    getDocumentPath: (id: string) =>
+      ipcRenderer.invoke("docs:getDocumentPath", id),
+    showInFolder: (id: string) => ipcRenderer.invoke("docs:showInFolder", id),
   },
 
   system: {
@@ -170,6 +176,8 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke("system:showSaveDialog", options),
     showOpenDialog: (options: any) =>
       ipcRenderer.invoke("system:showOpenDialog", options),
+    startNativeDrag: (filePath: string) =>
+      ipcRenderer.invoke("system:startNativeDrag", filePath),
   },
 
   window: {

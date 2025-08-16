@@ -1,4 +1,12 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  ipcMain,
+  dialog,
+  shell,
+  nativeImage,
+} from "electron";
 import { autoUpdater } from "electron-updater";
 import path from "path";
 import isDev from "electron-is-dev";
@@ -380,6 +388,25 @@ class Application {
       }
     });
 
+    ipcMain.handle("system:startNativeDrag", async (event, filePath) => {
+      try {
+        // Use Electron's native drag functionality
+        const webContents = event.sender;
+
+        // Create a simple transparent icon for the drag
+        const icon = nativeImage.createEmpty();
+
+        webContents.startDrag({
+          file: filePath,
+          icon: icon,
+        });
+        this.logger.info(`Started native drag for file: ${filePath}`);
+      } catch (error) {
+        this.logger.error("Failed to start native drag:", error);
+        throw error;
+      }
+    });
+
     // Window management IPC
     ipcMain.handle("window:minimize", () => {
       const mainWindow = this.windowManager.getMainWindow();
@@ -479,6 +506,24 @@ class Application {
         return await this.docsService.getDocumentFile(id);
       } catch (error) {
         this.logger.error("Failed to get document file:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:getDocumentPath", async (event, id) => {
+      try {
+        return await this.docsService.getDocumentPath(id);
+      } catch (error) {
+        this.logger.error("Failed to get document path:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:showInFolder", async (event, id) => {
+      try {
+        return await this.docsService.showInFolder(id);
+      } catch (error) {
+        this.logger.error("Failed to show in folder:", error);
         throw error;
       }
     });

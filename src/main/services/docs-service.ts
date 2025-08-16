@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { app } from "electron";
+import os from "os";
 import pdfParse from "pdf-parse";
 import { Logger } from "./logger-service";
 
@@ -40,6 +41,15 @@ export class DocsService {
     } catch {
       await fs.mkdir(this.docsDir, { recursive: true });
       this.logger.info("Created docs directory");
+    }
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 
@@ -138,9 +148,20 @@ export class DocsService {
       );
 
       const id = Date.now().toString();
-      const fileExtension = path.extname(fileName);
-      const storedFileName = `${id}${fileExtension}`;
-      const filePath = path.join(this.docsDir, storedFileName);
+
+      // Use the real filename, but ensure uniqueness by checking for conflicts
+      let storedFileName = fileName;
+      let filePath = path.join(this.docsDir, storedFileName);
+
+      // Check if file already exists and create a unique name if needed
+      let counter = 1;
+      while (await this.fileExists(filePath)) {
+        const fileExtension = path.extname(fileName);
+        const baseName = path.basename(fileName, fileExtension);
+        storedFileName = `${baseName} (${counter})${fileExtension}`;
+        filePath = path.join(this.docsDir, storedFileName);
+        counter++;
+      }
 
       this.logger.info(`Saving file to: ${filePath}`);
 
@@ -405,7 +426,12 @@ export class DocsService {
 
       // Read the actual file from the filesystem
       const fs = require("fs").promises;
-      const fileBuffer = await fs.readFile(document.filePath);
+      if (!document.filePath) {
+        this.logger.error(`Document ${id} has no file path`);
+        return null;
+      }
+      const fullPath = path.join(this.docsDir, document.filePath);
+      const fileBuffer = await fs.readFile(fullPath);
 
       return {
         content: fileBuffer.buffer.slice(
@@ -418,6 +444,53 @@ export class DocsService {
     } catch (error) {
       this.logger.error(`Failed to get document file ${id}:`, error);
       return null;
+    }
+  }
+
+  public async getDocumentPath(id: string): Promise<string | null> {
+    try {
+      const document = await this.getDocument(id);
+      if (!document) {
+        this.logger.error(`Document not found: ${id}`);
+        return null;
+      }
+
+      if (document.filePath) {
+        // Return the absolute path to the file
+        return path.join(this.docsDir, document.filePath);
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(`Failed to get document path ${id}:`, error);
+      return null;
+    }
+  }
+
+  public async showInFolder(id: string): Promise<{ success: boolean }> {
+    try {
+      const document = await this.getDocument(id);
+      if (!document) {
+        this.logger.error(`Document not found: ${id}`);
+        return { success: false };
+      }
+
+      if (document.filePath) {
+        // Get the absolute path to the file
+        const fullPath = path.join(this.docsDir, document.filePath);
+
+        // Use shell.showItemInFolder to open the file manager and highlight the file
+        const { shell } = require("electron");
+        shell.showItemInFolder(fullPath);
+
+        this.logger.info(`Showed ${document.name} in folder: ${fullPath}`);
+        return { success: true };
+      }
+
+      return { success: false };
+    } catch (error) {
+      this.logger.error(`Failed to show document ${id} in folder:`, error);
+      return { success: false };
     }
   }
 }

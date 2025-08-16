@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
-  HomeIcon,
+  DocumentIcon,
   ChatBubbleLeftRightIcon,
   ChartBarIcon,
   Cog6ToothIcon,
@@ -12,7 +12,7 @@ import { useAppStore } from "../../hooks/useAppStore";
 
 const baseNavigation = [
   { name: "Messages", href: "/", icon: ChatBubbleLeftRightIcon },
-  { name: "Docs", href: "/docs", icon: HomeIcon },
+  { name: "Docs", href: "/docs", icon: DocumentIcon },
   { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
 ];
 
