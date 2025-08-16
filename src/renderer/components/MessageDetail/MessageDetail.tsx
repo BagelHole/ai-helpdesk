@@ -57,38 +57,15 @@ export const MessageDetail: React.FC = () => {
     }
   );
 
-  // Build enabled providers and set defaults
+  // Build enabled providers
   useEffect(() => {
     if (settings?.ai?.providers) {
       const providers = settings.ai.providers.filter(
         (p) => p.isEnabled && p.apiKey
       );
       setEnabledProviders(providers);
-
-      // Set default provider and model if not already set
-      if (providers.length > 0 && !selectedProviderId) {
-        const defaultProvider =
-          providers.find((p) => p.id === settings.ai.defaultProvider) ||
-          providers[0];
-        setSelectedProviderId(defaultProvider.id);
-
-        // Check if there's a saved model selection for this provider
-        const savedModelId =
-          settings.ai.selectedModels?.[defaultProvider.id]?.modelId;
-        if (savedModelId) {
-          setSelectedModelId(savedModelId);
-        } else {
-          // Use default model
-          const defaultModel =
-            defaultProvider.models.find((m) => m.isDefault) ||
-            defaultProvider.models[0];
-          if (defaultModel) {
-            setSelectedModelId(defaultModel.id);
-          }
-        }
-      }
     }
-  }, [settings, selectedProviderId]);
+  }, [settings]);
 
   const handleModelChange = (
     providerId: string,

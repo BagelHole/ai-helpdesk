@@ -480,7 +480,6 @@ class Application {
                 isDefault: true,
                 maxTokens: 16384,
                 contextWindow: 128000,
-                costPer1kTokens: 0.0025,
               },
               {
                 id: "gpt-4o-mini",
@@ -488,7 +487,6 @@ class Application {
                 isDefault: false,
                 maxTokens: 16384,
                 contextWindow: 128000,
-                costPer1kTokens: 0.00015,
               },
             ];
             break;
@@ -502,7 +500,6 @@ class Application {
                 isDefault: true,
                 maxTokens: 8192,
                 contextWindow: 1048576,
-                costPer1kTokens: 0.000075,
               },
               {
                 id: "gemini-2.5-pro",
@@ -510,7 +507,6 @@ class Application {
                 isDefault: false,
                 maxTokens: 8192,
                 contextWindow: 2097152,
-                costPer1kTokens: 0.00125,
               },
             ];
             break;
@@ -524,7 +520,6 @@ class Application {
                 isDefault: true,
                 maxTokens: 8192,
                 contextWindow: 200000,
-                costPer1kTokens: 0.003,
               },
               {
                 id: "claude-3-5-haiku-20241022",
@@ -532,7 +527,6 @@ class Application {
                 isDefault: false,
                 maxTokens: 8192,
                 contextWindow: 200000,
-                costPer1kTokens: 0.0008,
               },
             ];
             break;

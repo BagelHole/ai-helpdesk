@@ -118,7 +118,7 @@ export const OLLAMA_DEFAULT_MODELS: AIModel[] = [
 
 // Function to get models for a specific provider type
 export function getModelsForProvider(
-  providerType: "openai" | "anthropic" | "google" | "ollama"
+  providerType: "openai" | "anthropic" | "google" | "ollama" | "custom"
 ): AIModel[] {
   switch (providerType) {
     case "openai":
@@ -129,6 +129,8 @@ export function getModelsForProvider(
       return GOOGLE_MODELS;
     case "ollama":
       return OLLAMA_DEFAULT_MODELS;
+    case "custom":
+      return []; // Custom providers should define their own models
     default:
       return [];
   }

@@ -38,8 +38,10 @@ interface ElectronAPI {
       threadMessages?: SlackMessage[];
       userInput?: string;
       providerId?: string;
+      modelId?: string;
     }) => Promise<AIResponse>;
     getProviders: () => Promise<any[]>;
+    getAvailableModels: (providerId: string) => Promise<any[]>;
     testProvider: (
       provider: string,
       apiKey: string
@@ -54,9 +56,18 @@ interface ElectronAPI {
   };
   docs: {
     getDocuments: () => Promise<any[]>;
-    uploadDocument: (fileData: { name: string; type: string; size: number; arrayBuffer: ArrayBuffer }) => Promise<any>;
+    uploadDocument: (fileData: {
+      name: string;
+      type: string;
+      size: number;
+      arrayBuffer: ArrayBuffer;
+    }) => Promise<any>;
     createNote: (noteData: { title: string; content: string }) => Promise<any>;
-    updateNote: (noteData: { id: string; title: string; content: string }) => Promise<any>;
+    updateNote: (noteData: {
+      id: string;
+      title: string;
+      content: string;
+    }) => Promise<any>;
     deleteDocument: (id: string) => Promise<any>;
     viewDocument: (id: string) => Promise<any>;
   };
@@ -132,8 +143,12 @@ const electronAPI: ElectronAPI = {
 
   docs: {
     getDocuments: () => ipcRenderer.invoke("docs:getDocuments"),
-    uploadDocument: (fileData: { name: string; type: string; size: number; arrayBuffer: ArrayBuffer }) =>
-      ipcRenderer.invoke("docs:uploadDocument", fileData),
+    uploadDocument: (fileData: {
+      name: string;
+      type: string;
+      size: number;
+      arrayBuffer: ArrayBuffer;
+    }) => ipcRenderer.invoke("docs:uploadDocument", fileData),
     createNote: (noteData: { title: string; content: string }) =>
       ipcRenderer.invoke("docs:createNote", noteData),
     updateNote: (noteData: { id: string; title: string; content: string }) =>
