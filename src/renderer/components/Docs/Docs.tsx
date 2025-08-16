@@ -5,12 +5,14 @@ import {
   CloudArrowUpIcon,
   TrashIcon,
   EyeIcon,
+  PlusIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 
 interface Document {
   id: string;
   name: string;
-  type: "pdf" | "text";
+  type: "pdf" | "text" | "note";
   size: number;
   uploadedAt: string;
   content?: string;
@@ -18,6 +20,11 @@ interface Document {
 
 export const Docs: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [noteData, setNoteData] = useState({
+    title: "",
+    content: "",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch documents
@@ -60,6 +67,24 @@ export const Docs: React.FC = () => {
       // refetch();
     } catch (error) {
       console.error("Failed to upload file:", error);
+    }
+  };
+
+  const createNote = async () => {
+    if (!noteData.title.trim() || !noteData.content.trim()) return;
+    
+    try {
+      console.log("Text note creation feature coming soon:", noteData.title);
+      // Note creation API will be implemented in future version
+      // const result = await window.electronAPI.docs.createNote({
+      //   title: noteData.title,
+      //   content: noteData.content
+      // });
+      // refetch();
+      setNoteData({ title: "", content: "" });
+      setShowAddNote(false);
+    } catch (error) {
+      console.error("Failed to create note:", error);
     }
   };
 
@@ -125,13 +150,22 @@ export const Docs: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           IT Documentation
         </h1>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="btn btn-primary"
-        >
-          <CloudArrowUpIcon className="w-4 h-4 mr-2" />
-          Upload Document
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowAddNote(true)}
+            className="btn btn-secondary"
+          >
+            <PlusIcon className="w-4 h-4 mr-2" />
+            Add Note
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn btn-primary"
+          >
+            <CloudArrowUpIcon className="w-4 h-4 mr-2" />
+            Upload Document
+          </button>
+        </div>
       </div>
 
       {/* File Upload Area */}
@@ -172,6 +206,83 @@ export const Docs: React.FC = () => {
         className="hidden"
       />
 
+      {/* Add Note Modal */}
+      {showAddNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Add Text Note
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowAddNote(false);
+                    setNoteData({ title: "", content: "" });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={noteData.title}
+                    onChange={(e) => setNoteData({ ...noteData, title: e.target.value })}
+                    placeholder="e.g., Grafana Setup Guide, VPN Configuration, etc."
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Content
+                  </label>
+                  <textarea
+                    value={noteData.content}
+                    onChange={(e) => setNoteData({ ...noteData, content: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setShowAddNote(false);
+                        setNoteData({ title: "", content: "" });
+                      }
+                    }}
+                    placeholder="Enter your documentation content here. This will be available to the AI assistant for reference when answering related questions."
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-vertical"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowAddNote(false);
+                    setNoteData({ title: "", content: "" });
+                  }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createNote}
+                  disabled={!noteData.title.trim() || !noteData.content.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Create Note
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Documents List */}
       <div className="card">
         <div className="card-header">
@@ -193,10 +304,10 @@ export const Docs: React.FC = () => {
             <div className="text-center py-8">
               <DocumentIcon className="mx-auto h-16 w-16 text-gray-400" />
               <p className="text-gray-600 dark:text-gray-400 mt-4">
-                No documents uploaded yet
+                No documents or notes created yet
               </p>
               <p className="text-sm text-gray-500 mt-2">
-                Upload PDF or text files containing IT documentation,
+                Create text notes or upload PDF/text files containing IT documentation,
                 procedures, and setup guides
               </p>
             </div>
@@ -208,13 +319,17 @@ export const Docs: React.FC = () => {
                   className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <DocumentIcon className="w-8 h-8 text-blue-600" />
+                    {doc.type === "note" ? (
+                      <DocumentTextIcon className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <DocumentIcon className="w-8 h-8 text-blue-600" />
+                    )}
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">
                         {doc.name}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {formatFileSize(doc.size)} •{" "}
+                        {doc.type === "note" ? "Text Note" : formatFileSize(doc.size)} •{" "}
                         {formatDate(doc.uploadedAt)}
                       </p>
                     </div>
@@ -252,15 +367,16 @@ export const Docs: React.FC = () => {
         <div className="card-body">
           <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              • Upload IT procedures, setup guides, and troubleshooting
+              • Create text notes or upload IT procedures, setup guides, and troubleshooting
               documentation
             </p>
             <p>
-              • The AI assistant will reference these documents when helping
+              • The AI assistant will reference these documents and notes when helping
               with IT requests
             </p>
-            <p>• Supported formats: PDF and plain text files (max 10MB each)</p>
-            <p>• Documents are stored locally and processed for AI context</p>
+            <p>• Text notes: Create quick reference guides directly in the app</p>
+            <p>• File uploads: PDF and plain text files (max 10MB each)</p>
+            <p>• All content is stored locally and processed for AI context</p>
           </div>
         </div>
       </div>

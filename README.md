@@ -21,7 +21,7 @@ An open-source Electron desktop application that monitors your Slack communicati
 
 ### Core Functionality
 
-- **Real-time Slack monitoring** - Monitor DMs and tech support channels
+- **Real-time Slack monitoring** - Monitor tech support channels
 - **AI-powered responses** - Generate intelligent responses with multiple AI providers
 - **Rippling integration** - Fetch user and device information for enhanced context
 - **Message queue management** - Organize and prioritize incoming requests

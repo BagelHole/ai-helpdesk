@@ -28,7 +28,6 @@ export class SettingsService {
             workspaceId: { type: "string" },
             monitoredChannels: { type: "array", items: { type: "string" } },
             ignoredChannels: { type: "array", items: { type: "string" } },
-            enableDMs: { type: "boolean" },
             enableMentions: { type: "boolean" },
             enableThreads: { type: "boolean" },
             autoMarkAsRead: { type: "boolean" },
@@ -170,7 +169,6 @@ export class SettingsService {
       slack: {
         monitoredChannels: [],
         ignoredChannels: [],
-        enableDMs: true,
         enableMentions: true,
         enableThreads: true,
         autoMarkAsRead: false,

@@ -177,11 +177,6 @@ export class SlackService {
       // Try different conversation types separately to avoid scope issues
       const conversationTypes = ["public_channel"];
 
-      // Add other types if we have the right settings enabled
-      if (this.settings.enableDMs) {
-        conversationTypes.push("im", "mpim");
-      }
-
       this.logger.debug(
         "Trying basic conversations.list without types filter..."
       );
@@ -238,22 +233,21 @@ export class SlackService {
         is_private: channel.is_private,
         is_channel: channel.is_channel,
         is_member: channel.is_member,
-        enableDMs: this.settings.enableDMs,
         enableMentions: this.settings.enableMentions,
         monitoredChannels: this.settings.monitoredChannels,
         ignoredChannels: this.settings.ignoredChannels,
       })}`
     );
 
-    // Check DMs
-    if (channel.is_im && !this.settings.enableDMs) {
-      this.logger.debug(`Skipping IM - enableDMs is false`);
+    // Skip DMs and private channels - only monitor public channels
+    if (channel.is_im) {
+      this.logger.debug(`Skipping IM - DMs not supported`);
       return false;
     }
 
     // Check groups/private channels
-    if ((channel.is_group || channel.is_private) && !this.settings.enableDMs) {
-      this.logger.debug(`Skipping group/private - enableDMs is false`);
+    if (channel.is_group || channel.is_private) {
+      this.logger.debug(`Skipping group/private - private channels not supported`);
       return false;
     }
 
@@ -729,8 +723,8 @@ export class SlackService {
       return true;
     }
 
-    // Check if it's a DM and we should monitor DMs
-    if (event.channel_type === "im" && !this.settings.enableDMs) {
+    // Skip DMs - not supported
+    if (event.channel_type === "im") {
       return false;
     }
 
@@ -780,9 +774,7 @@ export class SlackService {
   }
 
   private getMessageType(event: any): SlackMessage["type"] {
-    if (event.channel_type === "im") {
-      return "direct_message";
-    } else if (event.text && event.text.includes(`<@${event.bot_id}>`)) {
+    if (event.text && event.text.includes(`<@${event.bot_id}>`)) {
       return "app_mention";
     } else {
       return "message";
