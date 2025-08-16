@@ -23,6 +23,7 @@ An open-source Electron desktop application that monitors your Slack communicati
 - **AI-powered responses** - Generate intelligent responses with multiple AI providers
 - **Message queue management** - Organize and prioritize incoming requests
 - **Response control** - Review and edit AI responses before sending
+- **AI Chat** - Chat with AI about your Docs or whatever you like
 
 ### AI Integration
 

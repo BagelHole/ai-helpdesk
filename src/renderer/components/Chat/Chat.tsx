@@ -2,8 +2,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAppStore } from "../../hooks/useAppStore";
 import { ModelSelector } from "../ModelSelector/ModelSelector";
 import { AIModel, AIProvider } from "@shared/types";
-import { PaperAirplaneIcon, XMarkIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  PaperAirplaneIcon,
+  XMarkIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { MarkdownRenderer } from "../MarkdownRenderer";
 
 interface ChatMessage {
   id: string;
@@ -40,33 +45,40 @@ export const Chat: React.FC = () => {
   const ACTIVE_SESSION_KEY = "ai-chat-active-session";
 
   // Get enabled AI providers
-  const enabledProviders: AIProvider[] = settings?.ai?.providers?.filter(
-    (provider) => provider.isEnabled && provider.apiKey
-  ) || [];
+  const enabledProviders: AIProvider[] =
+    settings?.ai?.providers?.filter(
+      (provider) => provider.isEnabled && provider.apiKey
+    ) || [];
 
   // Get active session
-  const activeSession = sessions.find(session => session.id === activeSessionId) || null;
+  const activeSession =
+    sessions.find((session) => session.id === activeSessionId) || null;
 
   // Load saved sessions on mount
   useEffect(() => {
     try {
       const savedSessions = localStorage.getItem(CHAT_SESSIONS_KEY);
       const savedActiveSession = localStorage.getItem(ACTIVE_SESSION_KEY);
-      
+
       if (savedSessions) {
-        const parsedSessions = JSON.parse(savedSessions).map((session: any) => ({
-          ...session,
-          messages: session.messages.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          })),
-          createdAt: new Date(session.createdAt),
-          lastActive: new Date(session.lastActive),
-        }));
+        const parsedSessions = JSON.parse(savedSessions).map(
+          (session: any) => ({
+            ...session,
+            messages: session.messages.map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+            })),
+            createdAt: new Date(session.createdAt),
+            lastActive: new Date(session.lastActive),
+          })
+        );
         setSessions(parsedSessions);
-        
+
         // Restore active session if it exists
-        if (savedActiveSession && parsedSessions.find((s: any) => s.id === savedActiveSession)) {
+        if (
+          savedActiveSession &&
+          parsedSessions.find((s: any) => s.id === savedActiveSession)
+        ) {
           setActiveSessionId(savedActiveSession);
         } else if (parsedSessions.length > 0) {
           setActiveSessionId(parsedSessions[0].id);
@@ -109,16 +121,16 @@ export const Chat: React.FC = () => {
       createdAt: new Date(),
       lastActive: new Date(),
     };
-    
-    setSessions(prev => [...prev, newSession]);
+
+    setSessions((prev) => [...prev, newSession]);
     setActiveSessionId(newSession.id);
     return newSession.id;
   };
 
   const closeSession = (sessionId: string) => {
-    setSessions(prev => {
-      const newSessions = prev.filter(s => s.id !== sessionId);
-      
+    setSessions((prev) => {
+      const newSessions = prev.filter((s) => s.id !== sessionId);
+
       // If we closed the active session, switch to another one
       if (sessionId === activeSessionId) {
         if (newSessions.length > 0) {
@@ -136,7 +148,7 @@ export const Chat: React.FC = () => {
           return [newSession];
         }
       }
-      
+
       return newSessions;
     });
   };
@@ -144,19 +156,23 @@ export const Chat: React.FC = () => {
   const switchToSession = (sessionId: string) => {
     setActiveSessionId(sessionId);
     // Update last active time
-    setSessions(prev => prev.map(session => 
-      session.id === sessionId 
-        ? { ...session, lastActive: new Date() }
-        : session
-    ));
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? { ...session, lastActive: new Date() }
+          : session
+      )
+    );
   };
 
   const updateSessionTitle = (sessionId: string, newTitle: string) => {
-    setSessions(prev => prev.map(session =>
-      session.id === sessionId
-        ? { ...session, title: newTitle.trim() || session.title }
-        : session
-    ));
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? { ...session, title: newTitle.trim() || session.title }
+          : session
+      )
+    );
   };
 
   const startEditingTitle = (sessionId: string, currentTitle: string) => {
@@ -184,15 +200,22 @@ export const Chat: React.FC = () => {
   ) => {
     if (!activeSessionId) return;
 
-    setSessions(prev => prev.map(session =>
-      session.id === activeSessionId
-        ? { ...session, providerId, modelId, model, lastActive: new Date() }
-        : session
-    ));
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === activeSessionId
+          ? { ...session, providerId, modelId, model, lastActive: new Date() }
+          : session
+      )
+    );
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !activeSession || !activeSession.providerId || !activeSession.modelId) {
+    if (
+      !inputValue.trim() ||
+      !activeSession ||
+      !activeSession.providerId ||
+      !activeSession.modelId
+    ) {
       if (!activeSession?.providerId || !activeSession?.modelId) {
         toast.error("Please select an AI model first");
       }
@@ -208,26 +231,31 @@ export const Chat: React.FC = () => {
     };
 
     // Add user message to active session
-    setSessions(prev => prev.map(session =>
-      session.id === activeSessionId
-        ? { 
-            ...session, 
-            messages: [...session.messages, userMessage],
-            lastActive: new Date(),
-            // Auto-generate title from first message if still default
-            title: session.messages.length === 0 && session.title.startsWith('Chat ') 
-              ? messageContent.slice(0, 30) + (messageContent.length > 30 ? '...' : '')
-              : session.title
-          }
-        : session
-    ));
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === activeSessionId
+          ? {
+              ...session,
+              messages: [...session.messages, userMessage],
+              lastActive: new Date(),
+              // Auto-generate title from first message if still default
+              title:
+                session.messages.length === 0 &&
+                session.title.startsWith("Chat ")
+                  ? messageContent.slice(0, 30) +
+                    (messageContent.length > 30 ? "..." : "")
+                  : session.title,
+            }
+          : session
+      )
+    );
 
     setInputValue("");
     setIsLoading(true);
 
     try {
       // Convert messages to conversation history for context
-      const conversationHistory = activeSession.messages.map(msg => ({
+      const conversationHistory = activeSession.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
@@ -237,7 +265,8 @@ export const Chat: React.FC = () => {
         content: messageContent,
         providerId: activeSession.providerId,
         modelId: activeSession.modelId,
-        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+        conversationHistory:
+          conversationHistory.length > 0 ? conversationHistory : undefined,
       });
 
       const assistantMessage: ChatMessage = {
@@ -250,15 +279,17 @@ export const Chat: React.FC = () => {
       };
 
       // Add assistant response to active session
-      setSessions(prev => prev.map(session =>
-        session.id === activeSessionId
-          ? { 
-              ...session, 
-              messages: [...session.messages, assistantMessage],
-              lastActive: new Date()
-            }
-          : session
-      ));
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === activeSessionId
+            ? {
+                ...session,
+                messages: [...session.messages, assistantMessage],
+                lastActive: new Date(),
+              }
+            : session
+        )
+      );
     } catch (error) {
       console.error("Failed to get AI response:", error);
       toast.error("Failed to get AI response. Please try again.");
@@ -276,12 +307,14 @@ export const Chat: React.FC = () => {
 
   const clearActiveSession = () => {
     if (!activeSessionId) return;
-    
-    setSessions(prev => prev.map(session =>
-      session.id === activeSessionId
-        ? { ...session, messages: [], lastActive: new Date() }
-        : session
-    ));
+
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === activeSessionId
+          ? { ...session, messages: [], lastActive: new Date() }
+          : session
+      )
+    );
   };
 
   return (
@@ -300,7 +333,9 @@ export const Chat: React.FC = () => {
             >
               <button
                 onClick={() => switchToSession(session.id)}
-                onDoubleClick={() => startEditingTitle(session.id, session.title)}
+                onDoubleClick={() =>
+                  startEditingTitle(session.id, session.title)
+                }
                 className="flex-1 px-3 py-2 text-left min-w-0"
               >
                 {editingSessionId === session.id ? (
@@ -339,7 +374,7 @@ export const Chat: React.FC = () => {
               )}
             </div>
           ))}
-          
+
           {/* New Tab Button */}
           <button
             onClick={() => createNewSession()}
@@ -366,7 +401,7 @@ export const Chat: React.FC = () => {
             </button>
           )}
         </div>
-        
+
         {/* Model Selector */}
         {activeSession && (
           <ModelSelector
@@ -402,8 +437,8 @@ export const Chat: React.FC = () => {
               {enabledProviders.length === 0
                 ? "Configure AI providers in Settings to start chatting"
                 : activeSession.providerId
-                ? "Type a message below to chat with AI"
-                : "Select an AI model above to start chatting"}
+                  ? "Type a message below to chat with AI"
+                  : "Select an AI model above to start chatting"}
             </p>
           </div>
         )}
@@ -422,13 +457,22 @@ export const Chat: React.FC = () => {
                   : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               }`}
             >
-              <div className="whitespace-pre-wrap break-words">{message.content}</div>
+              {message.role === "assistant" ? (
+                <MarkdownRenderer content={message.content} />
+              ) : (
+                <div className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </div>
+              )}
               <div className={`text-xs mt-2 opacity-70`}>
                 {message.timestamp.toLocaleTimeString()}
                 {message.role === "assistant" && (
                   <span className="ml-2">
-                    • {message.providerId ? 
-                      enabledProviders.find(p => p.id === message.providerId)?.name || message.providerId
+                    •{" "}
+                    {message.providerId
+                      ? enabledProviders.find(
+                          (p) => p.id === message.providerId
+                        )?.name || message.providerId
                       : "AI"}
                     {message.modelId && ` (${message.modelId})`}
                   </span>
@@ -465,12 +509,16 @@ export const Chat: React.FC = () => {
               !activeSession
                 ? "Loading..."
                 : enabledProviders.length === 0
-                ? "Configure AI providers in Settings first..."
-                : activeSession.providerId
-                ? "Type your message... (Enter to send, Shift+Enter for new line)"
-                : "Select an AI model above first..."
+                  ? "Configure AI providers in Settings first..."
+                  : activeSession.providerId
+                    ? "Type your message... (Enter to send, Shift+Enter for new line)"
+                    : "Select an AI model above first..."
             }
-            disabled={!activeSession || enabledProviders.length === 0 || !activeSession.providerId}
+            disabled={
+              !activeSession ||
+              enabledProviders.length === 0 ||
+              !activeSession.providerId
+            }
             className="flex-1 resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             rows={3}
           />

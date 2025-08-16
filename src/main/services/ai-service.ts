@@ -614,7 +614,7 @@ Guidelines:
           },
         ],
         generationConfig: {
-          maxOutputTokens: Math.min(model.maxTokens, 1000),
+          maxOutputTokens: model.maxTokens,
           temperature: 0.7,
         },
       }
@@ -628,7 +628,29 @@ Guidelines:
     // Handle different response structures
     let responseText = "";
     if (response.data.candidates && response.data.candidates.length > 0) {
-      responseText = response.data.candidates[0]?.content?.parts[0]?.text || "";
+      const candidate = response.data.candidates[0];
+      if (
+        candidate &&
+        candidate.content &&
+        candidate.content.parts &&
+        candidate.content.parts.length > 0
+      ) {
+        responseText = candidate.content.parts[0]?.text || "";
+      } else {
+        this.logger.warn("Candidate structure is incomplete:", candidate);
+
+        // Handle specific finish reasons
+        if (candidate?.finishReason === "MAX_TOKENS") {
+          responseText =
+            "Sorry, the response was too long and got cut off. Please try asking a more specific question.";
+        } else if (candidate?.finishReason === "SAFETY") {
+          responseText =
+            "Sorry, I can't provide a response to that request due to safety guidelines.";
+        } else {
+          responseText =
+            "Sorry, I received an incomplete response from the AI service.";
+        }
+      }
     } else if (response.data.error) {
       this.logger.error("Google API error:", response.data.error);
       throw new Error(
