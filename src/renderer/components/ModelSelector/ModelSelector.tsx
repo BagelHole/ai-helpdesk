@@ -27,6 +27,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     Record<string, AIModel[]>
   >({});
 
+  // Persistence key for localStorage
+  const persistenceKey = "selected-ai-model";
+
   // Load available models for each enabled provider
   useEffect(() => {
     const loadModels = async () => {
@@ -73,15 +76,33 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     : null;
 
   const handleModelSelect = (providerId: string, model: AIModel) => {
+    // Save selection to localStorage for persistence
+    const selection = { providerId, modelId: model.id };
+    localStorage.setItem(persistenceKey, JSON.stringify(selection));
+    
     onModelChange(providerId, model.id, model);
     setIsOpen(false);
   };
 
-  const formatCost = (cost: number) => {
-    if (cost === 0) return "Free";
-    if (cost < 0.001) return `$${(cost * 1000).toFixed(4)}/1K tokens`;
-    return `$${cost.toFixed(3)}/1K tokens`;
-  };
+  // Load saved selection on mount
+  useEffect(() => {
+    const savedSelection = localStorage.getItem(persistenceKey);
+    if (savedSelection && !selectedProviderId && !selectedModelId) {
+      try {
+        const { providerId, modelId } = JSON.parse(savedSelection);
+        // Check if the saved provider is still available
+        const provider = enabledProviders.find(p => p.id === providerId);
+        const model = availableModels[providerId]?.find(m => m.id === modelId);
+        if (provider && model) {
+          onModelChange(providerId, modelId, model);
+        }
+      } catch (error) {
+        console.warn("Failed to load saved model selection:", error);
+      }
+    }
+  }, [enabledProviders, availableModels, selectedProviderId, selectedModelId, onModelChange]);
+
+
 
   const getProviderIcon = (type: string) => {
     switch (type) {
@@ -101,7 +122,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <div className={`relative ${className}`}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           {label}
         </label>
       )}
@@ -110,36 +131,36 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="relative w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          className="relative w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-sm pl-2 pr-7 py-1.5 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
           <span className="flex items-center">
             {selectedModel && selectedProvider ? (
               <>
-                <span className="mr-2 text-lg">
+                <span className="mr-1.5 text-sm">
                   {getProviderIcon(selectedProvider.type)}
                 </span>
-                <span className="block truncate">
+                <span className="block truncate text-sm">
                   {selectedModel.name}
                   {showProviderInfo && (
-                    <span className="text-sm text-gray-500 ml-2">
+                    <span className="text-xs text-gray-500 ml-1">
                       ({selectedProvider.name})
                     </span>
                   )}
                 </span>
               </>
             ) : (
-              <span className="block truncate text-gray-500">
+              <span className="block truncate text-gray-500 text-sm">
                 {Object.keys(availableModels).length === 0
                   ? "No models available"
-                  : "Select a model..."}
+                  : "Select model..."}
               </span>
             )}
           </span>
-          <span className="ml-3 absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+          <span className="ml-2 absolute inset-y-0 right-0 flex items-center pr-1.5 pointer-events-none">
             <ChevronDownIcon
-              className={`h-5 w-5 text-gray-400 transform transition-transform ${
+              className={`h-3.5 w-3.5 text-gray-400 transform transition-transform ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -147,7 +168,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         </button>
 
         {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 shadow-lg max-h-80 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+          <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg max-h-64 rounded-md py-1 text-sm ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none border border-gray-200 dark:border-gray-600">
             {Object.entries(availableModels).map(([providerId, models]) => {
               const provider = enabledProviders.find(p => p.id === providerId);
               if (!provider) return null;
@@ -155,8 +176,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               return (
                 <div key={providerId}>
                   {/* Provider header */}
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800">
-                    <span className="mr-2">{getProviderIcon(provider.type)}</span>
+                  <div className="px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-700">
+                    <span className="mr-1.5">{getProviderIcon(provider.type)}</span>
                     {provider.name}
                   </div>
                   
@@ -166,33 +187,25 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       key={`${providerId}-${model.id}`}
                       type="button"
                       onClick={() => handleModelSelect(providerId, model)}
-                      className={`relative cursor-pointer select-none py-2 pl-3 pr-9 w-full text-left hover:bg-blue-50 dark:hover:bg-gray-600 ${
+                      className={`relative cursor-pointer select-none py-1.5 pl-2 pr-8 w-full text-left hover:bg-blue-50 dark:hover:bg-gray-600 ${
                         selectedProviderId === providerId && selectedModelId === model.id
                           ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
                           : "text-gray-900 dark:text-gray-100"
                       }`}
                     >
                       <div className="flex flex-col">
-                        <span className="font-medium truncate">{model.name}</span>
-                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          <span className="mr-3">
-                            {formatCost(model.costPer1kTokens)}
-                          </span>
-                          <span className="mr-3">
+                        <span className="font-medium truncate text-sm">{model.name}</span>
+                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                          <span>
                             {model.contextWindow.toLocaleString()} ctx
                           </span>
-                          {model.isDefault && (
-                            <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">
-                              Default
-                            </span>
-                          )}
                         </div>
                       </div>
                       
                       {selectedProviderId === providerId && selectedModelId === model.id && (
-                        <span className="absolute inset-y-0 right-0 flex items-center pr-4">
+                        <span className="absolute inset-y-0 right-0 flex items-center pr-2">
                           <svg
-                            className="h-5 w-5 text-blue-600"
+                            className="h-4 w-4 text-blue-600"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
@@ -211,7 +224,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             })}
             
             {Object.keys(availableModels).length === 0 && (
-              <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-center">
+              <div className="px-2 py-2 text-gray-500 dark:text-gray-400 text-center text-sm">
                 No AI providers configured. Please add API keys in Settings.
               </div>
             )}

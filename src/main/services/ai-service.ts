@@ -272,22 +272,21 @@ export class AIService {
       // Generate response based on provider type
       let response: string;
       let tokensUsed: number;
-      let cost: number;
 
       switch (provider.type) {
         case "openai":
-          ({ response, tokensUsed, cost } = await this.generateOpenAIResponse(
+          ({ response, tokensUsed } = await this.generateOpenAIResponse(
             client,
             model,
             context
           ));
           break;
         case "anthropic":
-          ({ response, tokensUsed, cost } =
+          ({ response, tokensUsed } =
             await this.generateAnthropicResponse(client, model, context));
           break;
         case "google":
-          ({ response, tokensUsed, cost } = await this.generateGoogleResponse(
+          ({ response, tokensUsed } = await this.generateGoogleResponse(
             client,
             model,
             context,
@@ -295,7 +294,7 @@ export class AIService {
           ));
           break;
         case "ollama":
-          ({ response, tokensUsed, cost } = await this.generateOllamaResponse(
+          ({ response, tokensUsed } = await this.generateOllamaResponse(
             client,
             model,
             context
@@ -320,7 +319,7 @@ export class AIService {
         response,
         confidence,
         tokensUsed,
-        cost,
+        cost: 0,
         responseTime,
         timestamp: new Date().toISOString(),
         isEdited: false,
@@ -509,7 +508,7 @@ Guidelines:
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/chat/completions", {
       model: model.id,
       messages: [{ role: "user", content: context }],
@@ -519,16 +518,15 @@ Guidelines:
 
     const responseText = response.data.choices[0]?.message?.content || "";
     const tokensUsed = response.data.usage?.total_tokens || 0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateAnthropicResponse(
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/messages", {
       model: model.id,
       max_tokens: Math.min(model.maxTokens, 1000),
@@ -539,9 +537,8 @@ Guidelines:
     const tokensUsed =
       response.data.usage?.input_tokens + response.data.usage?.output_tokens ||
       0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateGoogleResponse(
@@ -549,7 +546,7 @@ Guidelines:
     model: AIModel,
     context: string,
     apiKey: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post(
       `/v1beta/models/${model.id}:generateContent?key=${apiKey}`,
       {
@@ -568,16 +565,15 @@ Guidelines:
     const responseText =
       response.data.candidates[0]?.content?.parts[0]?.text || "";
     const tokensUsed = response.data.usageMetadata?.totalTokenCount || 0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateOllamaResponse(
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/api/generate", {
       model: model.id,
       prompt: context,
@@ -590,9 +586,8 @@ Guidelines:
 
     const responseText = response.data.response || "";
     const tokensUsed = response.data.eval_count || 0;
-    const cost = 0; // Ollama is free/local
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private calculateConfidence(response: string, message: SlackMessage): number {
@@ -747,11 +742,10 @@ Guidelines:
       )
       .map((model: any) => ({
         id: model.id,
-        name: this.formatModelName(model.id),
-        contextWindow: this.getContextWindow(model.id),
-        maxTokens: this.getMaxTokens(model.id),
-        costPer1kTokens: this.getModelCost(model.id),
-        isDefault: model.id === "gpt-4o" || model.id === "gpt-4-turbo",
+                 name: this.formatModelName(model.id),
+         contextWindow: this.getContextWindow(model.id),
+         maxTokens: this.getMaxTokens(model.id),
+         isDefault: model.id === "gpt-4o" || model.id === "gpt-4-turbo",
       }))
       .sort((a: AIModel, b: AIModel) => {
         // Sort with newest/best models first
@@ -769,35 +763,31 @@ Guidelines:
     // Anthropic doesn't have a public models endpoint, so we use our predefined list
     // but we can validate which ones are available
     const knownModels = [
-      {
-        id: "claude-4-sonnet-20241220",
-        name: "Claude 4 Sonnet",
-        contextWindow: 200000,
-        maxTokens: 8192,
-        costPer1kTokens: 0.015,
-        isDefault: true,
-      },
-      {
-        id: "claude-3-5-sonnet-20241022",
-        name: "Claude 3.5 Sonnet",
-        contextWindow: 200000,
-        maxTokens: 8192,
-        costPer1kTokens: 0.003,
-      },
-      {
-        id: "claude-3-5-haiku-20241022",
-        name: "Claude 3.5 Haiku",
-        contextWindow: 200000,
-        maxTokens: 8192,
-        costPer1kTokens: 0.00025,
-      },
-      {
-        id: "claude-3-opus-20240229",
-        name: "Claude 3 Opus",
-        contextWindow: 200000,
-        maxTokens: 4096,
-        costPer1kTokens: 0.015,
-      },
+             {
+         id: "claude-4-sonnet-20241220",
+         name: "Claude 4 Sonnet",
+         contextWindow: 200000,
+         maxTokens: 8192,
+         isDefault: true,
+       },
+       {
+         id: "claude-3-5-sonnet-20241022",
+         name: "Claude 3.5 Sonnet",
+         contextWindow: 200000,
+         maxTokens: 8192,
+       },
+       {
+         id: "claude-3-5-haiku-20241022",
+         name: "Claude 3.5 Haiku",
+         contextWindow: 200000,
+         maxTokens: 8192,
+       },
+       {
+         id: "claude-3-opus-20240229",
+         name: "Claude 3 Opus",
+         contextWindow: 200000,
+         maxTokens: 4096,
+       },
     ];
     
     return knownModels;
@@ -815,14 +805,13 @@ Guidelines:
         )
         .map((model: any) => {
           const modelId = model.name.split("/").pop(); // Extract model ID from full name
-          return {
-            id: modelId,
-            name: this.formatGoogleModelName(modelId),
-            contextWindow: model.inputTokenLimit || 32000,
-            maxTokens: model.outputTokenLimit || 8192,
-            costPer1kTokens: this.getGoogleModelCost(modelId),
-            isDefault: modelId.includes("2.5-pro") || modelId.includes("1.5-pro"),
-          };
+                     return {
+             id: modelId,
+             name: this.formatGoogleModelName(modelId),
+             contextWindow: model.inputTokenLimit || 32000,
+             maxTokens: model.outputTokenLimit || 8192,
+             isDefault: modelId.includes("2.5-pro"),
+           };
         })
         .sort((a: AIModel, b: AIModel) => {
           // Sort with newest models first
@@ -836,28 +825,25 @@ Guidelines:
       this.logger.warn("Failed to fetch Google models, using defaults:", error);
       // Return known Google models as fallback
       return [
-        {
-          id: "gemini-2.5-pro",
-          name: "Gemini 2.5 Pro",
-          contextWindow: 2000000,
-          maxTokens: 8192,
-          costPer1kTokens: 0.002,
-          isDefault: true,
-        },
-        {
-          id: "gemini-1.5-pro",
-          name: "Gemini 1.5 Pro",
-          contextWindow: 2000000,
-          maxTokens: 8192,
-          costPer1kTokens: 0.00125,
-        },
-        {
-          id: "gemini-1.5-flash",
-          name: "Gemini 1.5 Flash",
-          contextWindow: 1000000,
-          maxTokens: 8192,
-          costPer1kTokens: 0.000075,
-        },
+                 {
+           id: "gemini-2.5-pro",
+           name: "Gemini 2.5 Pro",
+           contextWindow: 2000000,
+           maxTokens: 8192,
+           isDefault: true,
+         },
+         {
+           id: "gemini-1.5-pro",
+           name: "Gemini 1.5 Pro",
+           contextWindow: 2000000,
+           maxTokens: 8192,
+         },
+         {
+           id: "gemini-1.5-flash",
+           name: "Gemini 1.5 Flash",
+           contextWindow: 1000000,
+           maxTokens: 8192,
+         },
       ];
     }
   }
@@ -872,7 +858,6 @@ Guidelines:
         name: this.formatOllamaModelName(model.name),
         contextWindow: 8192, // Default for most Ollama models
         maxTokens: 4096,
-        costPer1kTokens: 0, // Ollama is free/local
         isDefault: model.name.includes("llama3.1:8b"),
       }));
     } catch (error) {
@@ -935,26 +920,5 @@ Guidelines:
     return tokenMap[modelId] || 4096;
   }
 
-  private getModelCost(modelId: string): number {
-    const costMap: Record<string, number> = {
-      "gpt-5": 0.06,
-      "gpt-4o": 0.03,
-      "gpt-4o-mini": 0.00015,
-      "gpt-4-turbo": 0.03,
-      "gpt-3.5-turbo": 0.001,
-    };
-    
-    return costMap[modelId] || 0.002;
-  }
 
-  private getGoogleModelCost(modelId: string): number {
-    const costMap: Record<string, number> = {
-      "gemini-2.5-pro": 0.002,
-      "gemini-1.5-pro": 0.00125,
-      "gemini-1.5-flash": 0.000075,
-      "gemini-1.0-pro": 0.0005,
-    };
-    
-    return costMap[modelId] || 0.001;
-  }
 }

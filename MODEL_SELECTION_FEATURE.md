@@ -13,24 +13,22 @@ The AI Helpdesk now supports selecting from the latest models available from:
 
 ## Features
 
-### 1. Model Selection in Settings
+### 1. Simplified API Configuration
 
-In the Settings → API Configuration tab, users can now:
+In the Settings → API Configuration tab, users can:
 
 - Configure API keys for different providers
-- Select preferred models for each enabled provider
-- View model information including:
-  - Cost per 1K tokens
-  - Context window size
-  - Default model indicators
+- API keys automatically enable the corresponding AI providers
 
-### 2. Model Selection in Message Generation
+### 2. Compact Model Selection
 
 When generating AI responses for Slack messages:
 
-- Users can choose which AI provider and model to use
-- The dropdown shows all available models grouped by provider
-- Model selection is saved per session
+- Users can choose which AI provider and model to use from a compact dropdown
+- The interface is similar to Cursor's model selector - clean and minimal
+- Shows context window information for each model
+- Model selection is persistent across sessions (saved to localStorage)
+- Only appears in the message view, not in settings
 
 ### 3. Dynamic Model Discovery
 
@@ -47,17 +45,17 @@ If API discovery fails, the system falls back to hardcoded latest model definiti
 
 ### Components
 
-- **ModelSelector**: Reusable dropdown component for model selection
-- **Settings Integration**: Model selectors appear below each API key input
+- **ModelSelector**: Compact dropdown component for model selection (similar to Cursor's interface)
 - **MessageDetail Integration**: Model selector in AI response generation area
+- **Persistence**: Uses localStorage to remember user's model preferences
 
 ### Data Flow
 
 1. User configures API keys in Settings
 2. System builds list of enabled providers
 3. For each provider, system attempts to discover available models
-4. User can select preferred models, which are saved to settings
-5. During message generation, user can override model selection
+4. During message generation, user selects their preferred model
+5. Model selection is automatically saved to localStorage for persistence
 6. Selected model is passed to AI service for response generation
 
 ### Model Definitions
@@ -65,9 +63,9 @@ If API discovery fails, the system falls back to hardcoded latest model definiti
 Latest model definitions are maintained in `/src/shared/models/latest-models.ts`:
 
 - Model IDs, names, context windows, token limits
-- Pricing information
-- Default model flags
+- Default model flags (only one per provider)
 - Provider-specific formatting
+- No cost information (removed to avoid maintenance overhead)
 
 ### API Changes
 
@@ -89,12 +87,11 @@ interface AISettings {
 
 ## Usage
 
-### Configuring Models
+### Configuring Providers
 
 1. Go to Settings → API Configuration
 2. Enter API keys for desired providers
-3. Select preferred models for each provider
-4. Save configuration
+3. Save configuration
 
 ### Using Models for Responses
 
