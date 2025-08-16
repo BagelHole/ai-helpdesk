@@ -4,9 +4,13 @@ import {
   AppSettings,
   CategoryKeywords,
   CustomSystemPrompt,
+  AIProvider,
+  AIModel,
 } from "@shared/types";
 import { CategoriesSettings } from "./CategoriesSettings";
 import { AIPromptsSettings } from "./AIPromptsSettings";
+import { ModelSelector } from "../ModelSelector/ModelSelector";
+import { getModelsForProvider } from "@shared/models/latest-models";
 
 export const Settings: React.FC = () => {
   const { connections, settings, updateSettings, setConnectionStatus } =
@@ -28,6 +32,10 @@ export const Settings: React.FC = () => {
     googleApiKey: "",
     anthropicApiKey: "",
   });
+
+  // Model selection state
+  const [selectedModels, setSelectedModels] = useState<Record<string, { providerId: string; modelId: string; model: AIModel }>>({});
+  const [enabledProviders, setEnabledProviders] = useState<AIProvider[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -70,6 +78,9 @@ export const Settings: React.FC = () => {
 
           // Test connections for loaded API keys
           await testLoadedConnections(loadedSettings);
+
+          // Build enabled providers list and load selected models
+          await buildEnabledProviders(loadedSettings);
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -78,6 +89,81 @@ export const Settings: React.FC = () => {
 
     loadSettings();
   }, [updateSettings]);
+
+  // Build enabled providers list
+  const buildEnabledProviders = async (loadedSettings: AppSettings) => {
+    const providers: AIProvider[] = [];
+    const modelSelections: Record<string, { providerId: string; modelId: string; model: AIModel }> = {};
+
+    // Build providers based on API keys
+    const providerConfigs = [
+      {
+        id: "openai",
+        name: "OpenAI",
+        type: "openai" as const,
+        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "openai")?.apiKey || formData.openaiApiKey,
+      },
+      {
+        id: "google",
+        name: "Google Gemini",
+        type: "google" as const,
+        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "google")?.apiKey || formData.googleApiKey,
+      },
+      {
+        id: "anthropic",
+        name: "Anthropic Claude",
+        type: "anthropic" as const,
+        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "anthropic")?.apiKey || formData.anthropicApiKey,
+      },
+    ];
+
+    for (const config of providerConfigs) {
+      if (config.apiKey) {
+        const models = getModelsForProvider(config.type);
+        const provider: AIProvider = {
+          ...config,
+          models,
+          isEnabled: true,
+          rateLimits: {
+            requestsPerMinute: 60,
+            requestsPerDay: 1000,
+            tokensPerMinute: 40000,
+            tokensPerDay: 100000,
+          },
+        };
+        providers.push(provider);
+
+        // Set default model selection if not already set
+        const defaultModel = models.find(m => m.isDefault) || models[0];
+        if (defaultModel) {
+          modelSelections[config.id] = {
+            providerId: config.id,
+            modelId: defaultModel.id,
+            model: defaultModel,
+          };
+        }
+      }
+    }
+
+    setEnabledProviders(providers);
+    setSelectedModels(modelSelections);
+  };
+
+  // Handle model selection changes
+  const handleModelChange = (providerId: string, modelId: string, model: AIModel) => {
+    setSelectedModels(prev => ({
+      ...prev,
+      [providerId]: { providerId, modelId, model }
+    }));
+  };
+
+  // Update enabled providers when API keys change
+  useEffect(() => {
+    const updateProviders = async () => {
+      await buildEnabledProviders(settings || {});
+    };
+    updateProviders();
+  }, [formData.openaiApiKey, formData.googleApiKey, formData.anthropicApiKey]);
 
   // Test connections when settings are loaded
   const testLoadedConnections = async (loadedSettings: AppSettings) => {
@@ -182,6 +268,12 @@ export const Settings: React.FC = () => {
           enableLocalModels: settings?.ai?.enableLocalModels ?? false,
           ollamaUrl: settings?.ai?.ollamaUrl,
           categoryKeywords: settings?.ai?.categoryKeywords || [],
+          selectedModels: Object.fromEntries(
+            Object.entries(selectedModels).map(([key, value]) => [
+              key,
+              { providerId: value.providerId, modelId: value.modelId }
+            ])
+          ),
           providers: [
             {
               id: "openai",
@@ -189,7 +281,7 @@ export const Settings: React.FC = () => {
               type: "openai" as const,
               apiKey: formData.openaiApiKey,
               isEnabled: !!formData.openaiApiKey,
-              models: [],
+              models: getModelsForProvider("openai"),
               rateLimits: {
                 requestsPerMinute: 60,
                 requestsPerDay: 1000,
@@ -203,7 +295,7 @@ export const Settings: React.FC = () => {
               type: "google" as const,
               apiKey: formData.googleApiKey,
               isEnabled: !!formData.googleApiKey,
-              models: [],
+              models: getModelsForProvider("google"),
               rateLimits: {
                 requestsPerMinute: 60,
                 requestsPerDay: 1000,
@@ -217,7 +309,7 @@ export const Settings: React.FC = () => {
               type: "anthropic" as const,
               apiKey: formData.anthropicApiKey,
               isEnabled: !!formData.anthropicApiKey,
-              models: [],
+              models: getModelsForProvider("anthropic"),
               rateLimits: {
                 requestsPerMinute: 50,
                 requestsPerDay: 1000,
@@ -533,6 +625,19 @@ export const Settings: React.FC = () => {
                       handleInputChange("openaiApiKey", e.target.value)
                     }
                   />
+                  {formData.openaiApiKey && (
+                    <div className="mt-3">
+                      <ModelSelector
+                        selectedProviderId={selectedModels.openai?.providerId}
+                        selectedModelId={selectedModels.openai?.modelId}
+                        onModelChange={handleModelChange}
+                        enabledProviders={enabledProviders.filter(p => p.type === "openai")}
+                        label="Select OpenAI Model"
+                        className="w-full"
+                        showProviderInfo={false}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -547,6 +652,19 @@ export const Settings: React.FC = () => {
                       handleInputChange("googleApiKey", e.target.value)
                     }
                   />
+                  {formData.googleApiKey && (
+                    <div className="mt-3">
+                      <ModelSelector
+                        selectedProviderId={selectedModels.google?.providerId}
+                        selectedModelId={selectedModels.google?.modelId}
+                        onModelChange={handleModelChange}
+                        enabledProviders={enabledProviders.filter(p => p.type === "google")}
+                        label="Select Google Model"
+                        className="w-full"
+                        showProviderInfo={false}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -561,6 +679,19 @@ export const Settings: React.FC = () => {
                       handleInputChange("anthropicApiKey", e.target.value)
                     }
                   />
+                  {formData.anthropicApiKey && (
+                    <div className="mt-3">
+                      <ModelSelector
+                        selectedProviderId={selectedModels.anthropic?.providerId}
+                        selectedModelId={selectedModels.anthropic?.modelId}
+                        onModelChange={handleModelChange}
+                        enabledProviders={enabledProviders.filter(p => p.type === "anthropic")}
+                        label="Select Anthropic Model"
+                        className="w-full"
+                        showProviderInfo={false}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="card-footer">

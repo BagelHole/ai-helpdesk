@@ -1,15 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "react-query";
-import { SlackMessage } from "@shared/types";
+import { SlackMessage, AIProvider, AIModel } from "@shared/types";
 import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
+import { ModelSelector } from "../ModelSelector/ModelSelector";
+import { useAppStore } from "../../hooks/useAppStore";
+import { getModelsForProvider } from "@shared/models/latest-models";
 
 export const MessageDetail: React.FC = () => {
   const { messageId } = useParams<{ messageId: string }>();
   const navigate = useNavigate();
+  const { settings } = useAppStore();
   const [aiInput, setAiInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [enabledProviders, setEnabledProviders] = useState<AIProvider[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
 
   // Fetch the specific message
   const { data: message, isLoading } = useQuery<SlackMessage | null>(
@@ -50,6 +57,37 @@ export const MessageDetail: React.FC = () => {
     }
   );
 
+  // Build enabled providers and set defaults
+  useEffect(() => {
+    if (settings?.ai?.providers) {
+      const providers = settings.ai.providers.filter(p => p.isEnabled && p.apiKey);
+      setEnabledProviders(providers);
+
+      // Set default provider and model if not already set
+      if (providers.length > 0 && !selectedProviderId) {
+        const defaultProvider = providers.find(p => p.id === settings.ai.defaultProvider) || providers[0];
+        setSelectedProviderId(defaultProvider.id);
+
+        // Check if there's a saved model selection for this provider
+        const savedModelId = settings.ai.selectedModels?.[defaultProvider.id]?.modelId;
+        if (savedModelId) {
+          setSelectedModelId(savedModelId);
+        } else {
+          // Use default model
+          const defaultModel = defaultProvider.models.find(m => m.isDefault) || defaultProvider.models[0];
+          if (defaultModel) {
+            setSelectedModelId(defaultModel.id);
+          }
+        }
+      }
+    }
+  }, [settings, selectedProviderId]);
+
+  const handleModelChange = (providerId: string, modelId: string, model: AIModel) => {
+    setSelectedProviderId(providerId);
+    setSelectedModelId(modelId);
+  };
+
   const handleGenerateResponse = async () => {
     if (!message || !aiInput.trim()) return;
 
@@ -61,11 +99,19 @@ export const MessageDetail: React.FC = () => {
         message,
         threadMessages: threadMessages || [],
         userInput: aiInput,
-        // Uses default AI provider from settings
+        providerId: selectedProviderId,
+        modelId: selectedModelId,
       });
 
       setAiResponse(response.response);
       console.log("AI response generated:", response);
+      
+      // Display which model was used
+      const usedProvider = enabledProviders.find(p => p.id === selectedProviderId);
+      const usedModel = usedProvider?.models.find(m => m.id === selectedModelId);
+      if (usedModel && usedProvider) {
+        console.log(`Response generated using ${usedProvider.name} - ${usedModel.name}`);
+      }
     } catch (error) {
       console.error("Failed to generate AI response:", error);
       setAiResponse(
@@ -268,6 +314,16 @@ export const MessageDetail: React.FC = () => {
             </div>
             <div className="card-body">
               <div className="space-y-4">
+                {enabledProviders.length > 0 && (
+                  <ModelSelector
+                    selectedProviderId={selectedProviderId}
+                    selectedModelId={selectedModelId}
+                    onModelChange={handleModelChange}
+                    enabledProviders={enabledProviders}
+                    label="Select AI Model"
+                    className="w-full"
+                  />
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Ask the AI about this issue
@@ -282,7 +338,7 @@ export const MessageDetail: React.FC = () => {
                 </div>
                 <button
                   onClick={handleGenerateResponse}
-                  disabled={!aiInput.trim() || isGenerating}
+                  disabled={!aiInput.trim() || isGenerating || !selectedProviderId || !selectedModelId}
                   className="btn btn-primary w-full"
                 >
                   {isGenerating ? (

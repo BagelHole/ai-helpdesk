@@ -212,6 +212,7 @@ export interface CustomSystemPrompt {
 export interface AISettings {
   providers: AIProvider[];
   defaultProvider: string;
+  selectedModels?: Record<string, { providerId: string; modelId: string }>;
   systemPrompts: SystemPrompt[];
   defaultPrompt: string;
   customSystemPrompts: CustomSystemPrompt[];

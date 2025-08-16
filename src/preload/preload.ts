@@ -113,8 +113,11 @@ const electronAPI: ElectronAPI = {
       threadMessages?: SlackMessage[];
       userInput?: string;
       providerId?: string;
+      modelId?: string;
     }) => ipcRenderer.invoke("ai:generateResponse", requestData),
     getProviders: () => ipcRenderer.invoke("ai:getProviders"),
+    getAvailableModels: (providerId: string) =>
+      ipcRenderer.invoke("ai:getAvailableModels", providerId),
     testProvider: (provider: string, apiKey: string) =>
       ipcRenderer.invoke("ai:testProvider", provider, apiKey),
   },
