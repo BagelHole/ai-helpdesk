@@ -222,7 +222,8 @@ export class AIService {
     documents?: any[],
     userDevices?: any[],
     systemPrompt?: SystemPrompt,
-    providerId?: string
+    providerId?: string,
+    modelId?: string
   ): Promise<AIResponse> {
     const startTime = Date.now();
     const providerToUse = providerId || this.defaultProvider;
@@ -254,9 +255,15 @@ export class AIService {
         systemPrompt
       );
 
-      // Get the default model for this provider
-      const model =
-        provider.models.find((m) => m.isDefault) || provider.models[0];
+      // Get the specified model or default model for this provider
+      let model: AIModel;
+      if (modelId) {
+        model = provider.models.find((m) => m.id === modelId) || 
+                provider.models.find((m) => m.isDefault) || 
+                provider.models[0];
+      } else {
+        model = provider.models.find((m) => m.isDefault) || provider.models[0];
+      }
 
       if (!model) {
         throw new Error(`No models available for provider ${provider.name}`);
@@ -265,22 +272,21 @@ export class AIService {
       // Generate response based on provider type
       let response: string;
       let tokensUsed: number;
-      let cost: number;
 
       switch (provider.type) {
         case "openai":
-          ({ response, tokensUsed, cost } = await this.generateOpenAIResponse(
+          ({ response, tokensUsed } = await this.generateOpenAIResponse(
             client,
             model,
             context
           ));
           break;
         case "anthropic":
-          ({ response, tokensUsed, cost } =
+          ({ response, tokensUsed } =
             await this.generateAnthropicResponse(client, model, context));
           break;
         case "google":
-          ({ response, tokensUsed, cost } = await this.generateGoogleResponse(
+          ({ response, tokensUsed } = await this.generateGoogleResponse(
             client,
             model,
             context,
@@ -288,7 +294,7 @@ export class AIService {
           ));
           break;
         case "ollama":
-          ({ response, tokensUsed, cost } = await this.generateOllamaResponse(
+          ({ response, tokensUsed } = await this.generateOllamaResponse(
             client,
             model,
             context
@@ -313,7 +319,7 @@ export class AIService {
         response,
         confidence,
         tokensUsed,
-        cost,
+        cost: 0,
         responseTime,
         timestamp: new Date().toISOString(),
         isEdited: false,
@@ -502,7 +508,7 @@ Guidelines:
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/chat/completions", {
       model: model.id,
       messages: [{ role: "user", content: context }],
@@ -512,16 +518,15 @@ Guidelines:
 
     const responseText = response.data.choices[0]?.message?.content || "";
     const tokensUsed = response.data.usage?.total_tokens || 0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateAnthropicResponse(
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/messages", {
       model: model.id,
       max_tokens: Math.min(model.maxTokens, 1000),
@@ -532,9 +537,8 @@ Guidelines:
     const tokensUsed =
       response.data.usage?.input_tokens + response.data.usage?.output_tokens ||
       0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateGoogleResponse(
@@ -542,7 +546,7 @@ Guidelines:
     model: AIModel,
     context: string,
     apiKey: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post(
       `/v1beta/models/${model.id}:generateContent?key=${apiKey}`,
       {
@@ -561,16 +565,15 @@ Guidelines:
     const responseText =
       response.data.candidates[0]?.content?.parts[0]?.text || "";
     const tokensUsed = response.data.usageMetadata?.totalTokenCount || 0;
-    const cost = (tokensUsed / 1000) * model.costPer1kTokens;
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private async generateOllamaResponse(
     client: AxiosInstance,
     model: AIModel,
     context: string
-  ): Promise<{ response: string; tokensUsed: number; cost: number }> {
+  ): Promise<{ response: string; tokensUsed: number }> {
     const response = await client.post("/api/generate", {
       model: model.id,
       prompt: context,
@@ -583,9 +586,8 @@ Guidelines:
 
     const responseText = response.data.response || "";
     const tokensUsed = response.data.eval_count || 0;
-    const cost = 0; // Ollama is free/local
 
-    return { response: responseText, tokensUsed, cost };
+    return { response: responseText, tokensUsed };
   }
 
   private calculateConfidence(response: string, message: SlackMessage): number {
@@ -696,4 +698,227 @@ Guidelines:
   public isProviderAvailable(providerId: string): boolean {
     return this.providers.has(providerId) && this.clients.has(providerId);
   }
+
+  // Get available models from the provider API
+  public async getAvailableModels(providerId: string): Promise<AIModel[]> {
+    const provider = this.providers.get(providerId);
+    const client = this.clients.get(providerId);
+
+    if (!provider || !client) {
+      throw new Error(`Provider ${providerId} not found or not initialized`);
+    }
+
+    try {
+      switch (provider.type) {
+        case "openai":
+          return await this.getOpenAIModels(client);
+        case "anthropic":
+          return await this.getAnthropicModels();
+        case "google":
+          return await this.getGoogleModels(client, provider.apiKey!);
+        case "ollama":
+          return await this.getOllamaModels(client);
+        default:
+          this.logger.warn(`Model discovery not supported for ${provider.type}, using defaults`);
+          return provider.models;
+      }
+    } catch (error) {
+      this.logger.error(`Failed to fetch models for ${provider.name}:`, error);
+      // Return configured models as fallback
+      return provider.models;
+    }
+  }
+
+  private async getOpenAIModels(client: AxiosInstance): Promise<AIModel[]> {
+    const response = await client.get("/models");
+    const models = response.data.data || [];
+    
+    // Map OpenAI models to our AIModel interface
+    return models
+      .filter((model: any) => 
+        model.id.includes("gpt") && 
+        !model.id.includes("instruct") && 
+        !model.id.includes("edit")
+      )
+      .map((model: any) => ({
+        id: model.id,
+                 name: this.formatModelName(model.id),
+         contextWindow: this.getContextWindow(model.id),
+         maxTokens: this.getMaxTokens(model.id),
+         isDefault: model.id === "gpt-4o" || model.id === "gpt-4-turbo",
+      }))
+      .sort((a: AIModel, b: AIModel) => {
+        // Sort with newest/best models first
+        const order = ["gpt-5", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"];
+        const aIndex = order.findIndex(m => a.id.includes(m));
+        const bIndex = order.findIndex(m => b.id.includes(m));
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  private async getAnthropicModels(): Promise<AIModel[]> {
+    // Anthropic doesn't have a public models endpoint, so we use our predefined list
+    // but we can validate which ones are available
+    const knownModels = [
+             {
+         id: "claude-4-sonnet-20241220",
+         name: "Claude 4 Sonnet",
+         contextWindow: 200000,
+         maxTokens: 8192,
+         isDefault: true,
+       },
+       {
+         id: "claude-3-5-sonnet-20241022",
+         name: "Claude 3.5 Sonnet",
+         contextWindow: 200000,
+         maxTokens: 8192,
+       },
+       {
+         id: "claude-3-5-haiku-20241022",
+         name: "Claude 3.5 Haiku",
+         contextWindow: 200000,
+         maxTokens: 8192,
+       },
+       {
+         id: "claude-3-opus-20240229",
+         name: "Claude 3 Opus",
+         contextWindow: 200000,
+         maxTokens: 4096,
+       },
+    ];
+    
+    return knownModels;
+  }
+
+  private async getGoogleModels(client: AxiosInstance, apiKey: string): Promise<AIModel[]> {
+    try {
+      const response = await client.get(`/v1beta/models?key=${apiKey}`);
+      const models = response.data.models || [];
+      
+      return models
+        .filter((model: any) => 
+          model.name.includes("gemini") && 
+          model.supportedGenerationMethods?.includes("generateContent")
+        )
+        .map((model: any) => {
+          const modelId = model.name.split("/").pop(); // Extract model ID from full name
+                     return {
+             id: modelId,
+             name: this.formatGoogleModelName(modelId),
+             contextWindow: model.inputTokenLimit || 32000,
+             maxTokens: model.outputTokenLimit || 8192,
+             isDefault: modelId.includes("2.5-pro"),
+           };
+        })
+        .sort((a: AIModel, b: AIModel) => {
+          // Sort with newest models first
+          const order = ["2.5", "1.5", "1.0"];
+          const aVersion = order.find(v => a.id.includes(v));
+          const bVersion = order.find(v => b.id.includes(v));
+          if (aVersion && bVersion) return order.indexOf(aVersion) - order.indexOf(bVersion);
+          return a.name.localeCompare(b.name);
+        });
+    } catch (error) {
+      this.logger.warn("Failed to fetch Google models, using defaults:", error);
+      // Return known Google models as fallback
+      return [
+                 {
+           id: "gemini-2.5-pro",
+           name: "Gemini 2.5 Pro",
+           contextWindow: 2000000,
+           maxTokens: 8192,
+           isDefault: true,
+         },
+         {
+           id: "gemini-1.5-pro",
+           name: "Gemini 1.5 Pro",
+           contextWindow: 2000000,
+           maxTokens: 8192,
+         },
+         {
+           id: "gemini-1.5-flash",
+           name: "Gemini 1.5 Flash",
+           contextWindow: 1000000,
+           maxTokens: 8192,
+         },
+      ];
+    }
+  }
+
+  private async getOllamaModels(client: AxiosInstance): Promise<AIModel[]> {
+    try {
+      const response = await client.get("/api/tags");
+      const models = response.data.models || [];
+      
+      return models.map((model: any) => ({
+        id: model.name,
+        name: this.formatOllamaModelName(model.name),
+        contextWindow: 8192, // Default for most Ollama models
+        maxTokens: 4096,
+        isDefault: model.name.includes("llama3.1:8b"),
+      }));
+    } catch (error) {
+      this.logger.warn("Failed to fetch Ollama models:", error);
+      return [];
+    }
+  }
+
+  private formatModelName(modelId: string): string {
+    // Convert model IDs to user-friendly names
+    const nameMap: Record<string, string> = {
+      "gpt-5": "GPT-5",
+      "gpt-4o": "GPT-4o",
+      "gpt-4o-mini": "GPT-4o Mini",
+      "gpt-4-turbo": "GPT-4 Turbo",
+      "gpt-4-turbo-preview": "GPT-4 Turbo Preview",
+      "gpt-3.5-turbo": "GPT-3.5 Turbo",
+    };
+    
+    return nameMap[modelId] || modelId.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  private formatGoogleModelName(modelId: string): string {
+    return modelId
+      .replace("gemini-", "Gemini ")
+      .replace("-pro", " Pro")
+      .replace("-flash", " Flash")
+      .replace(/(\d+)\.(\d+)/, "$1.$2");
+  }
+
+  private formatOllamaModelName(modelId: string): string {
+    return modelId
+      .replace(":", " ")
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .replace("Llama", "Llama")
+      .replace("Codellama", "Code Llama");
+  }
+
+  private getContextWindow(modelId: string): number {
+    const contextMap: Record<string, number> = {
+      "gpt-5": 128000,
+      "gpt-4o": 128000,
+      "gpt-4o-mini": 128000,
+      "gpt-4-turbo": 128000,
+      "gpt-3.5-turbo": 16385,
+    };
+    
+    return contextMap[modelId] || 8192;
+  }
+
+  private getMaxTokens(modelId: string): number {
+    const tokenMap: Record<string, number> = {
+      "gpt-5": 4096,
+      "gpt-4o": 4096,
+      "gpt-4o-mini": 16384,
+      "gpt-4-turbo": 4096,
+      "gpt-3.5-turbo": 4096,
+    };
+    
+    return tokenMap[modelId] || 4096;
+  }
+
+
 }

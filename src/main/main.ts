@@ -245,7 +245,7 @@ class Application {
     // AI IPC
     ipcMain.handle("ai:generateResponse", async (event, requestData) => {
       try {
-        const { message, threadMessages, userInput, providerId } = requestData;
+        const { message, threadMessages, userInput, providerId, modelId } = requestData;
 
         // Get documents if available (future feature)
         const documents: any[] = [];
@@ -267,7 +267,8 @@ class Application {
           documents,
           userDevices,
           undefined, // systemPrompt - can be added later
-          providerId
+          providerId,
+          modelId
         );
         return response;
       } catch (error) {
@@ -281,6 +282,15 @@ class Application {
         return await this.aiService.getProviders();
       } catch (error) {
         this.logger.error("Failed to get AI providers:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("ai:getAvailableModels", async (event, providerId) => {
+      try {
+        return await this.aiService.getAvailableModels(providerId);
+      } catch (error) {
+        this.logger.error("Failed to get available models:", error);
         throw error;
       }
     });
