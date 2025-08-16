@@ -21,6 +21,8 @@ interface Document {
 export const Docs: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerData, setViewerData] = useState({ title: "", content: "" });
   const [noteData, setNoteData] = useState({
     title: "",
     content: "",
@@ -36,8 +38,7 @@ export const Docs: React.FC = () => {
     "documents",
     async () => {
       try {
-        // Document API not yet implemented - returning empty array
-        const result = await window.electronAPI.docs?.getDocuments();
+        const result = await window.electronAPI.docs.getDocuments();
         return result || [];
       } catch (error) {
         console.error("Failed to fetch documents:", error);
@@ -61,10 +62,9 @@ export const Docs: React.FC = () => {
 
   const uploadFile = async (file: File) => {
     try {
-      console.log("File upload feature coming soon:", file.name);
-      // File upload API will be implemented in future version
-      // const result = await window.electronAPI.docs.uploadDocument(file);
-      // refetch();
+      const result = await window.electronAPI.docs.uploadDocument(file);
+      console.log("File uploaded successfully:", result);
+      refetch();
     } catch (error) {
       console.error("Failed to upload file:", error);
     }
@@ -74,13 +74,12 @@ export const Docs: React.FC = () => {
     if (!noteData.title.trim() || !noteData.content.trim()) return;
     
     try {
-      console.log("Text note creation feature coming soon:", noteData.title);
-      // Note creation API will be implemented in future version
-      // const result = await window.electronAPI.docs.createNote({
-      //   title: noteData.title,
-      //   content: noteData.content
-      // });
-      // refetch();
+      const result = await window.electronAPI.docs.createNote({
+        title: noteData.title,
+        content: noteData.content
+      });
+      console.log("Note created successfully:", result);
+      refetch();
       setNoteData({ title: "", content: "" });
       setShowAddNote(false);
     } catch (error) {
@@ -90,10 +89,9 @@ export const Docs: React.FC = () => {
 
   const deleteDocument = async (docId: string) => {
     try {
-      console.log("Document deletion feature coming soon:", docId);
-      // Delete API will be implemented in future version
-      // await window.electronAPI.docs.deleteDocument(docId);
-      // refetch();
+      await window.electronAPI.docs.deleteDocument(docId);
+      console.log("Document deleted successfully");
+      refetch();
     } catch (error) {
       console.error("Failed to delete document:", error);
     }
@@ -101,9 +99,17 @@ export const Docs: React.FC = () => {
 
   const viewDocument = async (doc: Document) => {
     try {
-      console.log("Document viewer feature coming soon:", doc.name);
-      // Document viewer will be implemented in future version
-      // await window.electronAPI.docs.viewDocument(doc.id);
+      const result = await window.electronAPI.docs.viewDocument(doc.id);
+      if (result.success) {
+        if (result.content) {
+          // For text notes and text files, show content in a modal
+          setViewerData({ title: doc.name, content: result.content });
+          setShowViewer(true);
+        } else if (result.path) {
+          // For PDFs, open with system default app
+          await window.electronAPI.system.openExternal(`file://${result.path}`);
+        }
+      }
     } catch (error) {
       console.error("Failed to view document:", error);
     }
@@ -280,10 +286,46 @@ export const Docs: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+                 </div>
+       )}
 
-      {/* Documents List */}
+       {/* Document Viewer Modal */}
+       {showViewer && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+             <div className="p-6">
+               <div className="flex justify-between items-center mb-4">
+                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                   {viewerData.title}
+                 </h2>
+                 <button
+                   onClick={() => setShowViewer(false)}
+                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                 >
+                   ×
+                 </button>
+               </div>
+               
+               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto">
+                 <pre className="whitespace-pre-wrap text-sm text-gray-900 dark:text-white font-mono">
+                   {viewerData.content}
+                 </pre>
+               </div>
+               
+               <div className="flex justify-end mt-6">
+                 <button
+                   onClick={() => setShowViewer(false)}
+                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                 >
+                   Close
+                 </button>
+               </div>
+             </div>
+           </div>
+         </div>
+       )}
+
+       {/* Documents List */}
       <div className="card">
         <div className="card-header">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

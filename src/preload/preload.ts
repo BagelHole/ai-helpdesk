@@ -55,6 +55,7 @@ interface ElectronAPI {
   docs: {
     getDocuments: () => Promise<any[]>;
     uploadDocument: (file: File) => Promise<any>;
+    createNote: (noteData: { title: string; content: string }) => Promise<any>;
     deleteDocument: (id: string) => Promise<any>;
     viewDocument: (id: string) => Promise<any>;
   };
@@ -129,6 +130,8 @@ const electronAPI: ElectronAPI = {
     getDocuments: () => ipcRenderer.invoke("docs:getDocuments"),
     uploadDocument: (file: File) =>
       ipcRenderer.invoke("docs:uploadDocument", file),
+    createNote: (noteData: { title: string; content: string }) =>
+      ipcRenderer.invoke("docs:createNote", noteData),
     deleteDocument: (id: string) =>
       ipcRenderer.invoke("docs:deleteDocument", id),
     viewDocument: (id: string) => ipcRenderer.invoke("docs:viewDocument", id),
