@@ -54,8 +54,9 @@ interface ElectronAPI {
   };
   docs: {
     getDocuments: () => Promise<any[]>;
-    uploadDocument: (file: File) => Promise<any>;
+    uploadDocument: (fileData: { name: string; type: string; size: number; arrayBuffer: ArrayBuffer }) => Promise<any>;
     createNote: (noteData: { title: string; content: string }) => Promise<any>;
+    updateNote: (noteData: { id: string; title: string; content: string }) => Promise<any>;
     deleteDocument: (id: string) => Promise<any>;
     viewDocument: (id: string) => Promise<any>;
   };
@@ -128,10 +129,12 @@ const electronAPI: ElectronAPI = {
 
   docs: {
     getDocuments: () => ipcRenderer.invoke("docs:getDocuments"),
-    uploadDocument: (file: File) =>
-      ipcRenderer.invoke("docs:uploadDocument", file),
+    uploadDocument: (fileData: { name: string; type: string; size: number; arrayBuffer: ArrayBuffer }) =>
+      ipcRenderer.invoke("docs:uploadDocument", fileData),
     createNote: (noteData: { title: string; content: string }) =>
       ipcRenderer.invoke("docs:createNote", noteData),
+    updateNote: (noteData: { id: string; title: string; content: string }) =>
+      ipcRenderer.invoke("docs:updateNote", noteData),
     deleteDocument: (id: string) =>
       ipcRenderer.invoke("docs:deleteDocument", id),
     viewDocument: (id: string) => ipcRenderer.invoke("docs:viewDocument", id),

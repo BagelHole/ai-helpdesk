@@ -22,7 +22,12 @@ export class DocsService {
     this.logger = new Logger();
     this.docsDir = path.join(app.getPath("userData"), "docs");
     this.metadataFile = path.join(this.docsDir, "metadata.json");
-    this.ensureDocsDirectory();
+    this.logger.info(`Docs directory: ${this.docsDir}`);
+    this.logger.info(`Metadata file: ${this.metadataFile}`);
+    // Don't await here since constructor can't be async
+    this.ensureDocsDirectory().catch((error) => {
+      this.logger.error("Failed to ensure docs directory during construction:", error);
+    });
   }
 
   private async ensureDocsDirectory(): Promise<void> {
@@ -83,20 +88,60 @@ export class DocsService {
     }
   }
 
+  public async updateNote(id: string, title: string, content: string): Promise<Document> {
+    try {
+      const documents = await this.loadMetadata();
+      const documentIndex = documents.findIndex(doc => doc.id === id);
+      
+      if (documentIndex === -1) {
+        throw new Error("Note not found");
+      }
+
+      const document = documents[documentIndex];
+      if (document.type !== "note") {
+        throw new Error("Can only edit notes");
+      }
+
+      // Update the note
+      document.name = title;
+      document.content = content;
+      document.size = content.length;
+      // Keep original uploadedAt, could add updatedAt if desired
+
+      documents[documentIndex] = document;
+      await this.saveMetadata(documents);
+
+      this.logger.info(`Updated note: ${title}`);
+      return document;
+    } catch (error) {
+      this.logger.error("Failed to update note:", error);
+      throw error;
+    }
+  }
+
   public async uploadDocument(fileBuffer: Buffer, fileName: string, fileType: string): Promise<Document> {
     try {
+      this.logger.info(`Starting upload: ${fileName}, type: ${fileType}, size: ${fileBuffer.length}`);
+      
       const id = Date.now().toString();
       const fileExtension = path.extname(fileName);
       const storedFileName = `${id}${fileExtension}`;
       const filePath = path.join(this.docsDir, storedFileName);
 
+      this.logger.info(`Saving file to: ${filePath}`);
+      
+      // Ensure docs directory exists
+      await this.ensureDocsDirectory();
+      
       // Save the file
       await fs.writeFile(filePath, fileBuffer);
+      this.logger.info(`File saved successfully: ${storedFileName}`);
 
       // Extract content for text files
       let content: string | undefined;
       if (fileType === "text/plain") {
         content = fileBuffer.toString("utf-8");
+        this.logger.info(`Extracted text content: ${content.length} characters`);
       }
 
       const document: Document = {
@@ -109,11 +154,16 @@ export class DocsService {
         filePath: storedFileName,
       };
 
+      this.logger.info(`Created document object:`, JSON.stringify(document, null, 2));
+
       const documents = await this.loadMetadata();
+      this.logger.info(`Loaded existing documents: ${documents.length}`);
+      
       documents.push(document);
       await this.saveMetadata(documents);
+      this.logger.info(`Saved metadata with ${documents.length} documents`);
 
-      this.logger.info(`Uploaded document: ${fileName}`);
+      this.logger.info(`Successfully uploaded document: ${fileName}`);
       return document;
     } catch (error) {
       this.logger.error("Failed to upload document:", error);

@@ -395,11 +395,11 @@ class Application {
       }
     });
 
-    ipcMain.handle("docs:uploadDocument", async (event, file) => {
+    ipcMain.handle("docs:uploadDocument", async (event, fileData) => {
       try {
-        // Convert File to Buffer for Node.js processing
-        const buffer = Buffer.from(await file.arrayBuffer());
-        return await this.docsService.uploadDocument(buffer, file.name, file.type);
+        // Convert ArrayBuffer to Buffer for Node.js processing
+        const buffer = Buffer.from(fileData.arrayBuffer);
+        return await this.docsService.uploadDocument(buffer, fileData.name, fileData.type);
       } catch (error) {
         this.logger.error("Failed to upload document:", error);
         throw error;
@@ -411,6 +411,15 @@ class Application {
         return await this.docsService.createNote(noteData.title, noteData.content);
       } catch (error) {
         this.logger.error("Failed to create note:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:updateNote", async (event, noteData) => {
+      try {
+        return await this.docsService.updateNote(noteData.id, noteData.title, noteData.content);
+      } catch (error) {
+        this.logger.error("Failed to update note:", error);
         throw error;
       }
     });

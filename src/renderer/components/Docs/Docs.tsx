@@ -7,6 +7,7 @@ import {
   EyeIcon,
   PlusIcon,
   DocumentTextIcon,
+  PencilIcon,
 } from "@heroicons/react/24/outline";
 
 interface Document {
@@ -21,9 +22,15 @@ interface Document {
 export const Docs: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
+  const [showEditNote, setShowEditNote] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerData, setViewerData] = useState({ title: "", content: "" });
   const [noteData, setNoteData] = useState({
+    title: "",
+    content: "",
+  });
+  const [editNoteData, setEditNoteData] = useState({
+    id: "",
     title: "",
     content: "",
   });
@@ -62,11 +69,33 @@ export const Docs: React.FC = () => {
 
   const uploadFile = async (file: File) => {
     try {
-      const result = await window.electronAPI.docs.uploadDocument(file);
+      console.log(`Starting upload: ${file.name}, type: ${file.type}, size: ${file.size}`);
+      
+      // Convert File to ArrayBuffer for IPC transfer
+      const arrayBuffer = await file.arrayBuffer();
+      const fileData = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        arrayBuffer: arrayBuffer
+      };
+      
+      console.log("Uploading file data:", {
+        name: fileData.name,
+        type: fileData.type,
+        size: fileData.size,
+        arrayBufferSize: fileData.arrayBuffer.byteLength
+      });
+      
+      const result = await window.electronAPI.docs.uploadDocument(fileData);
       console.log("File uploaded successfully:", result);
-      refetch();
+      
+      // Force refetch to update the UI
+      await refetch();
+      console.log("Refetched documents after upload");
     } catch (error) {
       console.error("Failed to upload file:", error);
+      console.error("Error details:", error);
     }
   };
 
@@ -84,6 +113,35 @@ export const Docs: React.FC = () => {
       setShowAddNote(false);
     } catch (error) {
       console.error("Failed to create note:", error);
+    }
+  };
+
+  const updateNote = async () => {
+    if (!editNoteData.title.trim() || !editNoteData.content.trim()) return;
+    
+    try {
+      const result = await window.electronAPI.docs.updateNote({
+        id: editNoteData.id,
+        title: editNoteData.title,
+        content: editNoteData.content
+      });
+      console.log("Note updated successfully:", result);
+      refetch();
+      setEditNoteData({ id: "", title: "", content: "" });
+      setShowEditNote(false);
+    } catch (error) {
+      console.error("Failed to update note:", error);
+    }
+  };
+
+  const startEditNote = (doc: Document) => {
+    if (doc.type === "note") {
+      setEditNoteData({
+        id: doc.id,
+        title: doc.name,
+        content: doc.content || ""
+      });
+      setShowEditNote(true);
     }
   };
 
@@ -289,6 +347,83 @@ export const Docs: React.FC = () => {
                  </div>
        )}
 
+       {/* Edit Note Modal */}
+       {showEditNote && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+             <div className="p-6">
+               <div className="flex justify-between items-center mb-4">
+                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                   Edit Note
+                 </h2>
+                 <button
+                   onClick={() => {
+                     setShowEditNote(false);
+                     setEditNoteData({ id: "", title: "", content: "" });
+                   }}
+                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                 >
+                   ×
+                 </button>
+               </div>
+               
+               <div className="space-y-4">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                     Title
+                   </label>
+                   <input
+                     type="text"
+                     value={editNoteData.title}
+                     onChange={(e) => setEditNoteData({ ...editNoteData, title: e.target.value })}
+                     placeholder="e.g., Grafana Setup Guide, VPN Configuration, etc."
+                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                   />
+                 </div>
+                 
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                     Content
+                   </label>
+                   <textarea
+                     value={editNoteData.content}
+                     onChange={(e) => setEditNoteData({ ...editNoteData, content: e.target.value })}
+                     onKeyDown={(e) => {
+                       if (e.key === "Escape") {
+                         setShowEditNote(false);
+                         setEditNoteData({ id: "", title: "", content: "" });
+                       }
+                     }}
+                     placeholder="Enter your documentation content here. This will be available to the AI assistant for reference when answering related questions."
+                     rows={12}
+                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-vertical"
+                   />
+                 </div>
+               </div>
+               
+               <div className="flex justify-end space-x-3 mt-6">
+                 <button
+                   onClick={() => {
+                     setShowEditNote(false);
+                     setEditNoteData({ id: "", title: "", content: "" });
+                   }}
+                   className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                 >
+                   Cancel
+                 </button>
+                 <button
+                   onClick={updateNote}
+                   disabled={!editNoteData.title.trim() || !editNoteData.content.trim()}
+                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                 >
+                   Update Note
+                 </button>
+               </div>
+             </div>
+           </div>
+         </div>
+       )}
+
        {/* Document Viewer Modal */}
        {showViewer && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -384,6 +519,15 @@ export const Docs: React.FC = () => {
                     >
                       <EyeIcon className="w-4 h-4" />
                     </button>
+                    {doc.type === "note" && (
+                      <button
+                        onClick={() => startEditNote(doc)}
+                        className="btn btn-sm btn-secondary"
+                        title="Edit note"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => deleteDocument(doc.id)}
                       className="btn btn-sm btn-danger"
