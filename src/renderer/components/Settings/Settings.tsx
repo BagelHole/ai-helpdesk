@@ -34,7 +34,9 @@ export const Settings: React.FC = () => {
   });
 
   // Model selection state
-  const [selectedModels, setSelectedModels] = useState<Record<string, { providerId: string; modelId: string; model: AIModel }>>({});
+  const [selectedModels, setSelectedModels] = useState<
+    Record<string, { providerId: string; modelId: string; model: AIModel }>
+  >({});
   const [enabledProviders, setEnabledProviders] = useState<AIProvider[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -93,7 +95,10 @@ export const Settings: React.FC = () => {
   // Build enabled providers list
   const buildEnabledProviders = async (loadedSettings: AppSettings) => {
     const providers: AIProvider[] = [];
-    const modelSelections: Record<string, { providerId: string; modelId: string; model: AIModel }> = {};
+    const modelSelections: Record<
+      string,
+      { providerId: string; modelId: string; model: AIModel }
+    > = {};
 
     // Build providers based on API keys
     const providerConfigs = [
@@ -101,19 +106,25 @@ export const Settings: React.FC = () => {
         id: "openai",
         name: "OpenAI",
         type: "openai" as const,
-        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "openai")?.apiKey || formData.openaiApiKey,
+        apiKey:
+          loadedSettings.ai?.providers?.find((p) => p.type === "openai")
+            ?.apiKey || formData.openaiApiKey,
       },
       {
         id: "google",
         name: "Google Gemini",
         type: "google" as const,
-        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "google")?.apiKey || formData.googleApiKey,
+        apiKey:
+          loadedSettings.ai?.providers?.find((p) => p.type === "google")
+            ?.apiKey || formData.googleApiKey,
       },
       {
         id: "anthropic",
         name: "Anthropic Claude",
         type: "anthropic" as const,
-        apiKey: loadedSettings.ai?.providers?.find((p) => p.type === "anthropic")?.apiKey || formData.anthropicApiKey,
+        apiKey:
+          loadedSettings.ai?.providers?.find((p) => p.type === "anthropic")
+            ?.apiKey || formData.anthropicApiKey,
       },
     ];
 
@@ -134,7 +145,7 @@ export const Settings: React.FC = () => {
         providers.push(provider);
 
         // Set default model selection if not already set
-        const defaultModel = models.find(m => m.isDefault) || models[0];
+        const defaultModel = models.find((m) => m.isDefault) || models[0];
         if (defaultModel) {
           modelSelections[config.id] = {
             providerId: config.id,
@@ -150,20 +161,31 @@ export const Settings: React.FC = () => {
   };
 
   // Handle model selection changes
-  const handleModelChange = (providerId: string, modelId: string, model: AIModel) => {
-    setSelectedModels(prev => ({
+  const handleModelChange = (
+    providerId: string,
+    modelId: string,
+    model: AIModel
+  ) => {
+    setSelectedModels((prev) => ({
       ...prev,
-      [providerId]: { providerId, modelId, model }
+      [providerId]: { providerId, modelId, model },
     }));
   };
 
   // Update enabled providers when API keys change
   useEffect(() => {
     const updateProviders = async () => {
-      await buildEnabledProviders(settings || {});
+      if (settings) {
+        await buildEnabledProviders(settings);
+      }
     };
     updateProviders();
-  }, [formData.openaiApiKey, formData.googleApiKey, formData.anthropicApiKey]);
+  }, [
+    formData.openaiApiKey,
+    formData.googleApiKey,
+    formData.anthropicApiKey,
+    settings,
+  ]);
 
   // Test connections when settings are loaded
   const testLoadedConnections = async (loadedSettings: AppSettings) => {
@@ -271,7 +293,7 @@ export const Settings: React.FC = () => {
           selectedModels: Object.fromEntries(
             Object.entries(selectedModels).map(([key, value]) => [
               key,
-              { providerId: value.providerId, modelId: value.modelId }
+              { providerId: value.providerId, modelId: value.modelId },
             ])
           ),
           providers: [
@@ -631,7 +653,9 @@ export const Settings: React.FC = () => {
                         selectedProviderId={selectedModels.openai?.providerId}
                         selectedModelId={selectedModels.openai?.modelId}
                         onModelChange={handleModelChange}
-                        enabledProviders={enabledProviders.filter(p => p.type === "openai")}
+                        enabledProviders={enabledProviders.filter(
+                          (p) => p.type === "openai"
+                        )}
                         label="Select OpenAI Model"
                         className="w-full"
                         showProviderInfo={false}
@@ -658,7 +682,9 @@ export const Settings: React.FC = () => {
                         selectedProviderId={selectedModels.google?.providerId}
                         selectedModelId={selectedModels.google?.modelId}
                         onModelChange={handleModelChange}
-                        enabledProviders={enabledProviders.filter(p => p.type === "google")}
+                        enabledProviders={enabledProviders.filter(
+                          (p) => p.type === "google"
+                        )}
                         label="Select Google Model"
                         className="w-full"
                         showProviderInfo={false}
@@ -682,10 +708,14 @@ export const Settings: React.FC = () => {
                   {formData.anthropicApiKey && (
                     <div className="mt-3">
                       <ModelSelector
-                        selectedProviderId={selectedModels.anthropic?.providerId}
+                        selectedProviderId={
+                          selectedModels.anthropic?.providerId
+                        }
                         selectedModelId={selectedModels.anthropic?.modelId}
                         onModelChange={handleModelChange}
-                        enabledProviders={enabledProviders.filter(p => p.type === "anthropic")}
+                        enabledProviders={enabledProviders.filter(
+                          (p) => p.type === "anthropic"
+                        )}
                         label="Select Anthropic Model"
                         className="w-full"
                         showProviderInfo={false}

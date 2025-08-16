@@ -60,21 +60,28 @@ export const MessageDetail: React.FC = () => {
   // Build enabled providers and set defaults
   useEffect(() => {
     if (settings?.ai?.providers) {
-      const providers = settings.ai.providers.filter(p => p.isEnabled && p.apiKey);
+      const providers = settings.ai.providers.filter(
+        (p) => p.isEnabled && p.apiKey
+      );
       setEnabledProviders(providers);
 
       // Set default provider and model if not already set
       if (providers.length > 0 && !selectedProviderId) {
-        const defaultProvider = providers.find(p => p.id === settings.ai.defaultProvider) || providers[0];
+        const defaultProvider =
+          providers.find((p) => p.id === settings.ai.defaultProvider) ||
+          providers[0];
         setSelectedProviderId(defaultProvider.id);
 
         // Check if there's a saved model selection for this provider
-        const savedModelId = settings.ai.selectedModels?.[defaultProvider.id]?.modelId;
+        const savedModelId =
+          settings.ai.selectedModels?.[defaultProvider.id]?.modelId;
         if (savedModelId) {
           setSelectedModelId(savedModelId);
         } else {
           // Use default model
-          const defaultModel = defaultProvider.models.find(m => m.isDefault) || defaultProvider.models[0];
+          const defaultModel =
+            defaultProvider.models.find((m) => m.isDefault) ||
+            defaultProvider.models[0];
           if (defaultModel) {
             setSelectedModelId(defaultModel.id);
           }
@@ -83,7 +90,11 @@ export const MessageDetail: React.FC = () => {
     }
   }, [settings, selectedProviderId]);
 
-  const handleModelChange = (providerId: string, modelId: string, model: AIModel) => {
+  const handleModelChange = (
+    providerId: string,
+    modelId: string,
+    model: AIModel
+  ) => {
     setSelectedProviderId(providerId);
     setSelectedModelId(modelId);
   };
@@ -100,17 +111,22 @@ export const MessageDetail: React.FC = () => {
         threadMessages: threadMessages || [],
         userInput: aiInput,
         providerId: selectedProviderId,
-        modelId: selectedModelId,
       });
 
       setAiResponse(response.response);
       console.log("AI response generated:", response);
-      
+
       // Display which model was used
-      const usedProvider = enabledProviders.find(p => p.id === selectedProviderId);
-      const usedModel = usedProvider?.models.find(m => m.id === selectedModelId);
+      const usedProvider = enabledProviders.find(
+        (p) => p.id === selectedProviderId
+      );
+      const usedModel = usedProvider?.models.find(
+        (m) => m.id === selectedModelId
+      );
       if (usedModel && usedProvider) {
-        console.log(`Response generated using ${usedProvider.name} - ${usedModel.name}`);
+        console.log(
+          `Response generated using ${usedProvider.name} - ${usedModel.name}`
+        );
       }
     } catch (error) {
       console.error("Failed to generate AI response:", error);
@@ -338,7 +354,12 @@ export const MessageDetail: React.FC = () => {
                 </div>
                 <button
                   onClick={handleGenerateResponse}
-                  disabled={!aiInput.trim() || isGenerating || !selectedProviderId || !selectedModelId}
+                  disabled={
+                    !aiInput.trim() ||
+                    isGenerating ||
+                    !selectedProviderId ||
+                    !selectedModelId
+                  }
                   className="btn btn-primary w-full"
                 >
                   {isGenerating ? (
