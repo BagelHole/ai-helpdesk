@@ -7,7 +7,6 @@ export const OPENAI_MODELS: AIModel[] = [
     name: "GPT-5",
     contextWindow: 128000,
     maxTokens: 4096,
-    costPer1kTokens: 0.06, // Estimated pricing
     isDefault: true,
   },
   {
@@ -15,28 +14,24 @@ export const OPENAI_MODELS: AIModel[] = [
     name: "GPT-4o",
     contextWindow: 128000,
     maxTokens: 4096,
-    costPer1kTokens: 0.03,
   },
   {
     id: "gpt-4o-mini",
     name: "GPT-4o Mini",
     contextWindow: 128000,
     maxTokens: 16384,
-    costPer1kTokens: 0.00015,
   },
   {
     id: "gpt-4-turbo",
     name: "GPT-4 Turbo",
     contextWindow: 128000,
     maxTokens: 4096,
-    costPer1kTokens: 0.03,
   },
   {
     id: "gpt-3.5-turbo",
     name: "GPT-3.5 Turbo",
     contextWindow: 16385,
     maxTokens: 4096,
-    costPer1kTokens: 0.001,
   },
 ];
 
@@ -47,7 +42,6 @@ export const ANTHROPIC_MODELS: AIModel[] = [
     name: "Claude 4 Sonnet",
     contextWindow: 200000,
     maxTokens: 8192,
-    costPer1kTokens: 0.015, // Estimated pricing
     isDefault: true,
   },
   {
@@ -55,21 +49,18 @@ export const ANTHROPIC_MODELS: AIModel[] = [
     name: "Claude 3.5 Sonnet",
     contextWindow: 200000,
     maxTokens: 8192,
-    costPer1kTokens: 0.003,
   },
   {
     id: "claude-3-5-haiku-20241022",
     name: "Claude 3.5 Haiku",
     contextWindow: 200000,
     maxTokens: 8192,
-    costPer1kTokens: 0.00025,
   },
   {
     id: "claude-3-opus-20240229",
     name: "Claude 3 Opus",
     contextWindow: 200000,
     maxTokens: 4096,
-    costPer1kTokens: 0.015,
   },
 ];
 
@@ -80,7 +71,6 @@ export const GOOGLE_MODELS: AIModel[] = [
     name: "Gemini 2.5 Pro",
     contextWindow: 2000000,
     maxTokens: 8192,
-    costPer1kTokens: 0.002, // Estimated pricing
     isDefault: true,
   },
   {
@@ -88,21 +78,18 @@ export const GOOGLE_MODELS: AIModel[] = [
     name: "Gemini 1.5 Pro",
     contextWindow: 2000000,
     maxTokens: 8192,
-    costPer1kTokens: 0.00125,
   },
   {
     id: "gemini-1.5-flash",
     name: "Gemini 1.5 Flash",
     contextWindow: 1000000,
     maxTokens: 8192,
-    costPer1kTokens: 0.000075,
   },
   {
     id: "gemini-1.0-pro",
     name: "Gemini 1.0 Pro",
     contextWindow: 32760,
     maxTokens: 2048,
-    costPer1kTokens: 0.0005,
   },
 ];
 
@@ -113,21 +100,19 @@ export const OLLAMA_DEFAULT_MODELS: AIModel[] = [
     name: "Llama 3.1 8B",
     contextWindow: 8192,
     maxTokens: 4096,
-    costPer1kTokens: 0, // Local/free
+    isDefault: true,
   },
   {
     id: "llama3.1:70b",
     name: "Llama 3.1 70B",
     contextWindow: 8192,
     maxTokens: 4096,
-    costPer1kTokens: 0, // Local/free
   },
   {
     id: "codellama:13b",
     name: "Code Llama 13B",
     contextWindow: 4096,
     maxTokens: 2048,
-    costPer1kTokens: 0, // Local/free
   },
 ];
 

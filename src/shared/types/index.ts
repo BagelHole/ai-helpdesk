@@ -127,7 +127,6 @@ export interface AIModel {
   name: string;
   contextWindow: number;
   maxTokens: number;
-  costPer1kTokens: number;
   isDefault?: boolean;
 }
 
