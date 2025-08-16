@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAppStore } from "../../hooks/useAppStore";
 import { ModelSelector } from "../ModelSelector/ModelSelector";
 import { AIModel, AIProvider } from "@shared/types";
-import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
+import { PaperAirplaneIcon, XMarkIcon, PlusIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
 interface ChatMessage {
@@ -14,114 +14,229 @@ interface ChatMessage {
   modelId?: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  providerId?: string;
+  modelId?: string;
+  model?: AIModel;
+  createdAt: Date;
+  lastActive: Date;
+}
+
 export const Chat: React.FC = () => {
   const { settings } = useAppStore();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedProviderId, setSelectedProviderId] = useState<string>();
-  const [selectedModelId, setSelectedModelId] = useState<string>();
-  const [selectedModel, setSelectedModel] = useState<AIModel>();
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Storage keys
-  const CHAT_MESSAGES_KEY = "ai-chat-messages";
-  const CHAT_MODEL_KEY = "ai-chat-selected-model";
+  const CHAT_SESSIONS_KEY = "ai-chat-sessions";
+  const ACTIVE_SESSION_KEY = "ai-chat-active-session";
 
   // Get enabled AI providers
   const enabledProviders: AIProvider[] = settings?.ai?.providers?.filter(
     (provider) => provider.isEnabled && provider.apiKey
   ) || [];
 
-  // Load saved messages and model selection on mount
+  // Get active session
+  const activeSession = sessions.find(session => session.id === activeSessionId) || null;
+
+  // Load saved sessions on mount
   useEffect(() => {
     try {
-      // Load saved messages
-      const savedMessages = localStorage.getItem(CHAT_MESSAGES_KEY);
-      if (savedMessages) {
-        const parsedMessages = JSON.parse(savedMessages).map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
+      const savedSessions = localStorage.getItem(CHAT_SESSIONS_KEY);
+      const savedActiveSession = localStorage.getItem(ACTIVE_SESSION_KEY);
+      
+      if (savedSessions) {
+        const parsedSessions = JSON.parse(savedSessions).map((session: any) => ({
+          ...session,
+          messages: session.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          })),
+          createdAt: new Date(session.createdAt),
+          lastActive: new Date(session.lastActive),
         }));
-        setMessages(parsedMessages);
-      }
-
-      // Load saved model selection
-      const savedModel = localStorage.getItem(CHAT_MODEL_KEY);
-      if (savedModel) {
-        const { providerId, modelId, model } = JSON.parse(savedModel);
-        setSelectedProviderId(providerId);
-        setSelectedModelId(modelId);
-        setSelectedModel(model);
+        setSessions(parsedSessions);
+        
+        // Restore active session if it exists
+        if (savedActiveSession && parsedSessions.find((s: any) => s.id === savedActiveSession)) {
+          setActiveSessionId(savedActiveSession);
+        } else if (parsedSessions.length > 0) {
+          setActiveSessionId(parsedSessions[0].id);
+        }
+      } else {
+        // Create first session if none exist
+        createNewSession();
       }
     } catch (error) {
-      console.warn("Failed to load saved chat data:", error);
+      console.warn("Failed to load saved chat sessions:", error);
+      createNewSession();
     }
   }, []);
 
-  // Save messages to localStorage whenever they change
+  // Save sessions to localStorage whenever they change
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messages));
+    if (sessions.length > 0) {
+      localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(sessions));
     }
-  }, [messages]);
+  }, [sessions]);
 
-  // Auto-scroll to bottom when new messages are added
+  // Save active session ID
+  useEffect(() => {
+    if (activeSessionId) {
+      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+    }
+  }, [activeSessionId]);
+
+  // Auto-scroll to bottom when active session messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [activeSession?.messages]);
+
+  // Session management functions
+  const createNewSession = (title?: string) => {
+    const newSession: ChatSession = {
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: title || `Chat ${sessions.length + 1}`,
+      messages: [],
+      createdAt: new Date(),
+      lastActive: new Date(),
+    };
+    
+    setSessions(prev => [...prev, newSession]);
+    setActiveSessionId(newSession.id);
+    return newSession.id;
+  };
+
+  const closeSession = (sessionId: string) => {
+    setSessions(prev => {
+      const newSessions = prev.filter(s => s.id !== sessionId);
+      
+      // If we closed the active session, switch to another one
+      if (sessionId === activeSessionId) {
+        if (newSessions.length > 0) {
+          setActiveSessionId(newSessions[0].id);
+        } else {
+          // If no sessions left, create a new one
+          const newSession: ChatSession = {
+            id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: "Chat 1",
+            messages: [],
+            createdAt: new Date(),
+            lastActive: new Date(),
+          };
+          setActiveSessionId(newSession.id);
+          return [newSession];
+        }
+      }
+      
+      return newSessions;
+    });
+  };
+
+  const switchToSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    // Update last active time
+    setSessions(prev => prev.map(session => 
+      session.id === sessionId 
+        ? { ...session, lastActive: new Date() }
+        : session
+    ));
+  };
+
+  const updateSessionTitle = (sessionId: string, newTitle: string) => {
+    setSessions(prev => prev.map(session =>
+      session.id === sessionId
+        ? { ...session, title: newTitle.trim() || session.title }
+        : session
+    ));
+  };
+
+  const startEditingTitle = (sessionId: string, currentTitle: string) => {
+    setEditingSessionId(sessionId);
+    setEditingTitle(currentTitle);
+  };
+
+  const finishEditingTitle = () => {
+    if (editingSessionId) {
+      updateSessionTitle(editingSessionId, editingTitle);
+    }
+    setEditingSessionId(null);
+    setEditingTitle("");
+  };
+
+  const cancelEditingTitle = () => {
+    setEditingSessionId(null);
+    setEditingTitle("");
+  };
 
   const handleModelChange = (
     providerId: string,
     modelId: string,
     model: AIModel
   ) => {
-    setSelectedProviderId(providerId);
-    setSelectedModelId(modelId);
-    setSelectedModel(model);
+    if (!activeSessionId) return;
 
-    // Save model selection to localStorage
-    try {
-      localStorage.setItem(
-        CHAT_MODEL_KEY,
-        JSON.stringify({ providerId, modelId, model })
-      );
-    } catch (error) {
-      console.warn("Failed to save model selection:", error);
-    }
+    setSessions(prev => prev.map(session =>
+      session.id === activeSessionId
+        ? { ...session, providerId, modelId, model, lastActive: new Date() }
+        : session
+    ));
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedProviderId || !selectedModelId) {
-      if (!selectedProviderId || !selectedModelId) {
+    if (!inputValue.trim() || !activeSession || !activeSession.providerId || !activeSession.modelId) {
+      if (!activeSession?.providerId || !activeSession?.modelId) {
         toast.error("Please select an AI model first");
       }
       return;
     }
 
+    const messageContent = inputValue.trim();
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
-      content: inputValue.trim(),
+      content: messageContent,
       role: "user",
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Add user message to active session
+    setSessions(prev => prev.map(session =>
+      session.id === activeSessionId
+        ? { 
+            ...session, 
+            messages: [...session.messages, userMessage],
+            lastActive: new Date(),
+            // Auto-generate title from first message if still default
+            title: session.messages.length === 0 && session.title.startsWith('Chat ') 
+              ? messageContent.slice(0, 30) + (messageContent.length > 30 ? '...' : '')
+              : session.title
+          }
+        : session
+    ));
+
     setInputValue("");
     setIsLoading(true);
 
     try {
       // Convert messages to conversation history for context
-      const conversationHistory = messages.map(msg => ({
+      const conversationHistory = activeSession.messages.map(msg => ({
         role: msg.role,
         content: msg.content,
       }));
 
       // Send chat message using the simplified API
       const response = await window.electronAPI.ai.sendChatMessage({
-        content: inputValue.trim(),
-        providerId: selectedProviderId,
-        modelId: selectedModelId,
+        content: messageContent,
+        providerId: activeSession.providerId,
+        modelId: activeSession.modelId,
         conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
       });
 
@@ -130,11 +245,20 @@ export const Chat: React.FC = () => {
         content: response.content,
         role: "assistant",
         timestamp: new Date(),
-        providerId: selectedProviderId,
-        modelId: selectedModelId,
+        providerId: activeSession.providerId,
+        modelId: activeSession.modelId,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Add assistant response to active session
+      setSessions(prev => prev.map(session =>
+        session.id === activeSessionId
+          ? { 
+              ...session, 
+              messages: [...session.messages, assistantMessage],
+              lastActive: new Date()
+            }
+          : session
+      ));
     } catch (error) {
       console.error("Failed to get AI response:", error);
       toast.error("Failed to get AI response. Please try again.");
@@ -150,45 +274,125 @@ export const Chat: React.FC = () => {
     }
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    // Also clear from localStorage
-    localStorage.removeItem(CHAT_MESSAGES_KEY);
+  const clearActiveSession = () => {
+    if (!activeSessionId) return;
+    
+    setSessions(prev => prev.map(session =>
+      session.id === activeSessionId
+        ? { ...session, messages: [], lastActive: new Date() }
+        : session
+    ));
   };
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+      {/* Tab Bar */}
+      <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center overflow-x-auto">
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              className={`flex items-center min-w-0 max-w-48 group ${
+                session.id === activeSessionId
+                  ? "bg-white dark:bg-gray-900 border-b-2 border-blue-500"
+                  : "bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              <button
+                onClick={() => switchToSession(session.id)}
+                onDoubleClick={() => startEditingTitle(session.id, session.title)}
+                className="flex-1 px-3 py-2 text-left min-w-0"
+              >
+                {editingSessionId === session.id ? (
+                  <input
+                    type="text"
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onBlur={finishEditingTitle}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        finishEditingTitle();
+                      } else if (e.key === "Escape") {
+                        cancelEditingTitle();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full text-sm font-medium bg-transparent border-none outline-none text-gray-900 dark:text-gray-100"
+                    autoFocus
+                  />
+                ) : (
+                  <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {session.title}
+                  </div>
+                )}
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {session.messages.length} messages
+                </div>
+              </button>
+              {sessions.length > 1 && (
+                <button
+                  onClick={() => closeSession(session.id)}
+                  className="p-1 mr-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <XMarkIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {/* New Tab Button */}
+          <button
+            onClick={() => createNewSession()}
+            className="p-2 m-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+            title="New Chat Session"
+          >
+            <PlusIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            AI Chat
+            {activeSession?.title || "AI Chat"}
           </h1>
-          {messages.length > 0 && (
+          {activeSession && activeSession.messages.length > 0 && (
             <button
-              onClick={clearChat}
+              onClick={clearActiveSession}
               className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
             >
-              Clear Chat
+              Clear Session
             </button>
           )}
         </div>
         
         {/* Model Selector */}
-        <ModelSelector
-          selectedProviderId={selectedProviderId}
-          selectedModelId={selectedModelId}
-          onModelChange={handleModelChange}
-          enabledProviders={enabledProviders}
-          className="max-w-md"
-          label="Select AI Model"
-          showProviderInfo={true}
-        />
+        {activeSession && (
+          <ModelSelector
+            selectedProviderId={activeSession.providerId}
+            selectedModelId={activeSession.modelId}
+            onModelChange={handleModelChange}
+            enabledProviders={enabledProviders}
+            className="max-w-md"
+            label="Select AI Model"
+            showProviderInfo={true}
+          />
+        )}
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
+        {!activeSession && (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4">🤖</div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Loading chat sessions...
+            </h2>
+          </div>
+        )}
+
+        {activeSession && activeSession.messages.length === 0 && (
           <div className="text-center py-12">
             <div className="text-4xl mb-4">🤖</div>
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -197,12 +401,14 @@ export const Chat: React.FC = () => {
             <p className="text-gray-500 dark:text-gray-400">
               {enabledProviders.length === 0
                 ? "Configure AI providers in Settings to start chatting"
-                : "Type a message below to chat with AI"}
+                : activeSession.providerId
+                ? "Type a message below to chat with AI"
+                : "Select an AI model above to start chatting"}
             </p>
           </div>
         )}
 
-        {messages.map((message) => (
+        {activeSession?.messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${
@@ -256,13 +462,15 @@ export const Chat: React.FC = () => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={
-              enabledProviders.length === 0
+              !activeSession
+                ? "Loading..."
+                : enabledProviders.length === 0
                 ? "Configure AI providers in Settings first..."
-                : selectedProviderId
+                : activeSession.providerId
                 ? "Type your message... (Enter to send, Shift+Enter for new line)"
                 : "Select an AI model above first..."
             }
-            disabled={enabledProviders.length === 0 || !selectedProviderId}
+            disabled={!activeSession || enabledProviders.length === 0 || !activeSession.providerId}
             className="flex-1 resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             rows={3}
           />
@@ -271,7 +479,7 @@ export const Chat: React.FC = () => {
             disabled={
               !inputValue.trim() ||
               isLoading ||
-              !selectedProviderId ||
+              !activeSession?.providerId ||
               enabledProviders.length === 0
             }
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center"
