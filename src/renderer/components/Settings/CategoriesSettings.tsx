@@ -14,7 +14,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     categoryKeywords || []
   );
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  const [newKeyword, setNewKeyword] = useState("");
+  const [newKeywords, setNewKeywords] = useState<Record<string, string>>({});
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState({
     name: "",
@@ -27,13 +27,14 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   }, [categoryKeywords]);
 
   const handleAddKeyword = (categoryId: string) => {
-    if (!newKeyword.trim()) return;
+    const keywordValue = newKeywords[categoryId];
+    if (!keywordValue?.trim()) return;
 
     const updatedCategories = categories.map((cat) => {
       if (cat.category === categoryId) {
         return {
           ...cat,
-          keywords: [...cat.keywords, newKeyword.trim()],
+          keywords: [...cat.keywords, keywordValue.trim()],
         };
       }
       return cat;
@@ -41,7 +42,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
     setCategories(updatedCategories);
     onUpdate(updatedCategories);
-    setNewKeyword("");
+    setNewKeywords({ ...newKeywords, [categoryId]: "" });
   };
 
   const handleRemoveKeyword = (categoryId: string, keywordIndex: number) => {
@@ -286,8 +287,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
-                  value={newKeyword}
-                  onChange={(e) => setNewKeyword(e.target.value)}
+                  value={newKeywords[category.category] || ""}
+                  onChange={(e) => setNewKeywords({ ...newKeywords, [category.category]: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleAddKeyword(category.category);
@@ -298,7 +299,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 />
                 <button
                   onClick={() => handleAddKeyword(category.category)}
-                  disabled={!newKeyword.trim()}
+                  disabled={!newKeywords[category.category]?.trim()}
                   className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
                 >
                   Add

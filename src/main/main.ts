@@ -9,6 +9,7 @@ import { SettingsService } from "./services/settings-service";
 import { SlackService } from "./services/slack-service";
 import { RipplingService } from "./services/rippling-service";
 import { AIService } from "./services/ai-service";
+import { DocsService } from "./services/docs-service";
 import { Logger } from "./services/logger-service";
 
 class Application {
@@ -18,6 +19,7 @@ class Application {
   private slackService: SlackService;
   private ripplingService: RipplingService;
   private aiService: AIService;
+  private docsService: DocsService;
   private logger: Logger;
 
   constructor() {
@@ -28,6 +30,7 @@ class Application {
     this.slackService = new SlackService(this.databaseService);
     this.ripplingService = new RipplingService();
     this.aiService = new AIService();
+    this.docsService = new DocsService();
 
     this.setupEventHandlers();
     this.setupIPC();
@@ -379,6 +382,63 @@ class Application {
       const mainWindow = this.windowManager.getMainWindow();
       if (mainWindow) {
         mainWindow.close();
+      }
+    });
+
+    // Docs IPC
+    ipcMain.handle("docs:getDocuments", async () => {
+      try {
+        return await this.docsService.getDocuments();
+      } catch (error) {
+        this.logger.error("Failed to get documents:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:uploadDocument", async (event, fileData) => {
+      try {
+        // Convert ArrayBuffer to Buffer for Node.js processing
+        const buffer = Buffer.from(fileData.arrayBuffer);
+        return await this.docsService.uploadDocument(buffer, fileData.name, fileData.type);
+      } catch (error) {
+        this.logger.error("Failed to upload document:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:createNote", async (event, noteData) => {
+      try {
+        return await this.docsService.createNote(noteData.title, noteData.content);
+      } catch (error) {
+        this.logger.error("Failed to create note:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:updateNote", async (event, noteData) => {
+      try {
+        return await this.docsService.updateNote(noteData.id, noteData.title, noteData.content);
+      } catch (error) {
+        this.logger.error("Failed to update note:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:deleteDocument", async (event, id) => {
+      try {
+        return await this.docsService.deleteDocument(id);
+      } catch (error) {
+        this.logger.error("Failed to delete document:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:viewDocument", async (event, id) => {
+      try {
+        return await this.docsService.viewDocument(id);
+      } catch (error) {
+        this.logger.error("Failed to view document:", error);
+        throw error;
       }
     });
   }

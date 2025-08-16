@@ -18,7 +18,6 @@ export const Settings: React.FC = () => {
   // Form state
   const [formData, setFormData] = useState({
     slackBotToken: "",
-    enableDMs: true,
     enableMentions: true,
     enableThreads: true,
     autoMarkAsRead: false,
@@ -50,7 +49,6 @@ export const Settings: React.FC = () => {
           // Update form data
           setFormData({
             slackBotToken: loadedSettings.slack?.botToken || "",
-            enableDMs: loadedSettings.slack?.enableDMs ?? true,
             enableMentions: loadedSettings.slack?.enableMentions ?? true,
             enableThreads: loadedSettings.slack?.enableThreads ?? true,
             autoMarkAsRead: loadedSettings.slack?.autoMarkAsRead ?? false,
@@ -111,7 +109,6 @@ export const Settings: React.FC = () => {
     if (settings) {
       setFormData({
         slackBotToken: settings.slack?.botToken || "",
-        enableDMs: settings.slack?.enableDMs ?? true,
         enableMentions: settings.slack?.enableMentions ?? true,
         enableThreads: settings.slack?.enableThreads ?? true,
         autoMarkAsRead: settings.slack?.autoMarkAsRead ?? false,
@@ -158,7 +155,6 @@ export const Settings: React.FC = () => {
                 .map((ch) => ch.trim())
                 .filter((ch) => ch)
             : [],
-          enableDMs: formData.enableDMs,
           enableMentions: formData.enableMentions,
           enableThreads: formData.enableThreads,
           autoMarkAsRead: formData.autoMarkAsRead,
@@ -418,22 +414,6 @@ export const Settings: React.FC = () => {
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            className="rounded"
-                            checked={formData.enableDMs}
-                            onChange={(e) =>
-                              handleInputChange("enableDMs", e.target.checked)
-                            }
-                          />
-                          <span className="text-sm text-blue-800 dark:text-blue-200">
-                            Monitor Direct Messages
-                          </span>
-                        </label>
-                      </div>
-
                       <div>
                         <label className="flex items-center space-x-2">
                           <input

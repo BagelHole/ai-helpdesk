@@ -17,7 +17,7 @@ export interface SlackMessage {
   timestamp: string;
   thread_ts?: string;
   reply_count?: number;
-  type: "message" | "app_mention" | "direct_message";
+  type: "message" | "app_mention";
   files?: SlackFile[];
   reactions?: SlackReaction[];
   priority: MessagePriority;
@@ -177,7 +177,6 @@ export interface SlackSettings {
   workspaceId?: string;
   monitoredChannels: string[];
   ignoredChannels: string[];
-  enableDMs: boolean;
   enableMentions: boolean;
   enableThreads: boolean;
   autoMarkAsRead: boolean;
