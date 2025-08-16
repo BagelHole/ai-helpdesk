@@ -38,5 +38,6 @@ module.exports = {
   },
   externals: {
     sqlite3: "commonjs sqlite3",
+    "pdf-parse": "commonjs pdf-parse",
   },
 };

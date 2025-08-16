@@ -70,6 +70,9 @@ interface ElectronAPI {
     }) => Promise<any>;
     deleteDocument: (id: string) => Promise<any>;
     viewDocument: (id: string) => Promise<any>;
+    getDocumentFile: (
+      id: string
+    ) => Promise<{ content: ArrayBuffer; name: string; type: string } | null>;
   };
 
   // System
@@ -156,6 +159,8 @@ const electronAPI: ElectronAPI = {
     deleteDocument: (id: string) =>
       ipcRenderer.invoke("docs:deleteDocument", id),
     viewDocument: (id: string) => ipcRenderer.invoke("docs:viewDocument", id),
+    getDocumentFile: (id: string) =>
+      ipcRenderer.invoke("docs:getDocumentFile", id),
   },
 
   system: {

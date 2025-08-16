@@ -7,6 +7,77 @@ import { ModelSelector } from "../ModelSelector/ModelSelector";
 import { useAppStore } from "../../hooks/useAppStore";
 import { getModelsForProvider } from "@shared/models/latest-models";
 
+// Simple markdown renderer
+const renderMarkdown = (text: string): React.ReactNode => {
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Headers
+    if (line.startsWith("### ")) {
+      elements.push(
+        <h3 key={i} className="text-lg font-semibold mt-4 mb-2">
+          {line.slice(4)}
+        </h3>
+      );
+    } else if (line.startsWith("## ")) {
+      elements.push(
+        <h2 key={i} className="text-xl font-bold mt-4 mb-2">
+          {line.slice(3)}
+        </h2>
+      );
+    } else if (line.startsWith("# ")) {
+      elements.push(
+        <h1 key={i} className="text-2xl font-bold mt-4 mb-2">
+          {line.slice(2)}
+        </h1>
+      );
+    }
+    // Bold text
+    else if (line.includes("**")) {
+      const parts = line.split("**");
+      const formatted = parts.map((part, idx) =>
+        idx % 2 === 1 ? <strong key={idx}>{part}</strong> : part
+      );
+      elements.push(
+        <p key={i} className="mb-2">
+          {formatted}
+        </p>
+      );
+    }
+    // Bullet points
+    else if (line.startsWith("- ") || line.startsWith("* ")) {
+      const bulletText = line.slice(2);
+      elements.push(
+        <li key={i} className="ml-4 mb-1">
+          • {bulletText}
+        </li>
+      );
+    }
+    // Code blocks (simple)
+    else if (line.startsWith("```")) {
+      // Skip opening/closing code fence
+      continue;
+    }
+    // Empty lines
+    else if (line.trim() === "") {
+      elements.push(<br key={i} />);
+    }
+    // Regular text
+    else {
+      elements.push(
+        <p key={i} className="mb-2">
+          {line}
+        </p>
+      );
+    }
+  }
+
+  return <>{elements}</>;
+};
+
 export const MessageDetail: React.FC = () => {
   const { messageId } = useParams<{ messageId: string }>();
   const navigate = useNavigate();
@@ -14,6 +85,7 @@ export const MessageDetail: React.FC = () => {
   const [aiInput, setAiInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiAttachments, setAiAttachments] = useState<any[]>([]);
   const [enabledProviders, setEnabledProviders] = useState<AIProvider[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [selectedModelId, setSelectedModelId] = useState<string>("");
@@ -81,6 +153,7 @@ export const MessageDetail: React.FC = () => {
 
     setIsGenerating(true);
     setAiResponse(null);
+    setAiAttachments([]);
 
     try {
       const response = await window.electronAPI.ai.generateResponse({
@@ -91,7 +164,11 @@ export const MessageDetail: React.FC = () => {
       });
 
       setAiResponse(response.response);
+      setAiAttachments(response.attachments || []);
       console.log("AI response generated:", response);
+      if (response.attachments && response.attachments.length > 0) {
+        console.log("Attachments:", response.attachments);
+      }
 
       // Display which model was used
       const usedProvider = enabledProviders.find(
@@ -357,9 +434,151 @@ export const MessageDetail: React.FC = () => {
                     AI Suggested Response
                   </h4>
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                      {aiResponse}
-                    </p>
+                    <div className="text-gray-900 dark:text-white whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert">
+                      {renderMarkdown(aiResponse)}
+                    </div>
+
+                    {/* Attachments */}
+                    {aiAttachments.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-700">
+                        <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                          Referenced Documents:
+                        </h5>
+                        <div className="space-y-2">
+                          {aiAttachments.map((attachment) => (
+                            <div
+                              key={attachment.id}
+                              className="flex items-center space-x-2 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md"
+                              draggable
+                              onDragStart={async (e) => {
+                                try {
+                                  // Get the actual file content for drag & drop
+                                  const fileData =
+                                    await window.electronAPI.docs.getDocumentFile(
+                                      attachment.documentId
+                                    );
+                                  if (fileData) {
+                                    // Create a file object for drag & drop
+                                    const file = new File(
+                                      [fileData.content],
+                                      attachment.name,
+                                      {
+                                        type:
+                                          attachment.type === "pdf"
+                                            ? "application/pdf"
+                                            : "text/plain",
+                                      }
+                                    );
+
+                                    // Set file data for drag & drop
+                                    e.dataTransfer.items.add(file);
+                                    e.dataTransfer.setData(
+                                      "text/plain",
+                                      attachment.name
+                                    );
+                                  } else {
+                                    // Fallback to text
+                                    e.dataTransfer.setData(
+                                      "text/plain",
+                                      `📎 ${attachment.name}`
+                                    );
+                                  }
+                                } catch (error) {
+                                  console.error(
+                                    "Failed to prepare file for drag:",
+                                    error
+                                  );
+                                  e.dataTransfer.setData(
+                                    "text/plain",
+                                    `📎 ${attachment.name}`
+                                  );
+                                }
+                              }}
+                              title="Drag to attach to Slack message"
+                            >
+                              <div className="flex-shrink-0">
+                                {attachment.type === "pdf" ? (
+                                  <svg
+                                    className="w-5 h-5 text-red-500"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    className="w-5 h-5 text-blue-500"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                  {attachment.name}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {Math.round(attachment.size / 1024)} KB •{" "}
+                                  {attachment.type.toUpperCase()}
+                                </p>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const result =
+                                      await window.electronAPI.docs.viewDocument(
+                                        attachment.documentId
+                                      );
+                                    console.log(
+                                      "Document view result:",
+                                      result
+                                    );
+                                  } catch (error) {
+                                    console.error(
+                                      "Failed to view document:",
+                                      error
+                                    );
+                                  }
+                                }}
+                                className="flex-shrink-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                title="View document"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-3 flex space-x-2">
                       <button
                         onClick={() =>
@@ -370,7 +589,10 @@ export const MessageDetail: React.FC = () => {
                         Copy Response
                       </button>
                       <button
-                        onClick={() => setAiResponse(null)}
+                        onClick={() => {
+                          setAiResponse(null);
+                          setAiAttachments([]);
+                        }}
                         className="btn btn-sm btn-secondary"
                       >
                         Clear

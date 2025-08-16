@@ -109,6 +109,15 @@ export interface AIResponse {
   isEdited: boolean;
   originalResponse?: string;
   status: "pending" | "generated" | "sent" | "failed";
+  attachments?: AIResponseAttachment[];
+}
+
+export interface AIResponseAttachment {
+  id: string;
+  name: string;
+  type: "pdf" | "text" | "image";
+  path: string;
+  size: number;
 }
 
 export interface AIProvider {

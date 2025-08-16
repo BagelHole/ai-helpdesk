@@ -223,7 +223,8 @@ export class AIService {
     userDevices?: any[],
     systemPrompt?: SystemPrompt,
     providerId?: string,
-    modelId?: string
+    modelId?: string,
+    userInput?: string
   ): Promise<AIResponse> {
     const startTime = Date.now();
     const providerToUse = providerId || this.defaultProvider;
@@ -247,20 +248,45 @@ export class AIService {
       });
 
       // Build the context for the AI
+      this.logger.info("Documents passed to AI:", {
+        documentCount: documents?.length || 0,
+        documents: documents?.map((doc) => ({
+          name: doc.name,
+          type: doc.type,
+          contentLength: doc.content?.length || 0,
+        })),
+      });
+
       const context = this.buildMessageContext(
         message,
         threadMessages,
         documents,
         userDevices,
-        systemPrompt
+        systemPrompt,
+        userInput
       );
+
+      this.logger.info(`Final AI context length: ${context.length}`);
+      this.logger.info(
+        `Context includes documents: ${context.includes("COMPANY DOCUMENTATION AVAILABLE")}`
+      );
+      if (context.includes("COMPANY DOCUMENTATION AVAILABLE")) {
+        this.logger.info(
+          "Document section preview:",
+          context.substring(
+            context.indexOf("COMPANY DOCUMENTATION AVAILABLE"),
+            context.indexOf("COMPANY DOCUMENTATION AVAILABLE") + 500
+          )
+        );
+      }
 
       // Get the specified model or default model for this provider
       let model: AIModel;
       if (modelId) {
-        model = provider.models.find((m) => m.id === modelId) || 
-                provider.models.find((m) => m.isDefault) || 
-                provider.models[0];
+        model =
+          provider.models.find((m) => m.id === modelId) ||
+          provider.models.find((m) => m.isDefault) ||
+          provider.models[0];
       } else {
         model = provider.models.find((m) => m.isDefault) || provider.models[0];
       }
@@ -282,8 +308,11 @@ export class AIService {
           ));
           break;
         case "anthropic":
-          ({ response, tokensUsed } =
-            await this.generateAnthropicResponse(client, model, context));
+          ({ response, tokensUsed } = await this.generateAnthropicResponse(
+            client,
+            model,
+            context
+          ));
           break;
         case "google":
           ({ response, tokensUsed } = await this.generateGoogleResponse(
@@ -307,6 +336,9 @@ export class AIService {
       const responseTime = Date.now() - startTime;
       const confidence = this.calculateConfidence(response, message);
 
+      // Check if response mentions security policy and add PDF attachment
+      const attachments = this.checkForDocumentAttachments(response, documents);
+
       const aiResponse: AIResponse = {
         id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         messageId: message.id,
@@ -324,6 +356,7 @@ export class AIService {
         timestamp: new Date().toISOString(),
         isEdited: false,
         status: "generated",
+        attachments,
       };
 
       this.logger.debug("AI response generated successfully:", {
@@ -345,7 +378,8 @@ export class AIService {
     threadMessages?: SlackMessage[],
     documents?: any[],
     userDevices?: any[],
-    systemPrompt?: SystemPrompt
+    systemPrompt?: SystemPrompt,
+    userInput?: string
   ): string {
     let context = "";
 
@@ -414,17 +448,34 @@ export class AIService {
       });
     }
 
-    // Add available documentation
+    // Add available documentation - ONLY if mentioned in messages
     if (documents && documents.length > 0) {
-      context += "\n\nAvailable IT Documentation:\n";
-      documents.forEach((doc, index) => {
-        context += `${index + 1}. ${doc.name}`;
-        if (doc.content) {
-          context += `:\n${doc.content.substring(0, 1000)}${doc.content.length > 1000 ? "..." : ""}\n\n`;
-        } else {
-          context += ` (${doc.type} file)\n`;
-        }
-      });
+      // Filter documents that are mentioned in the original message or current user input
+      const mentionedDocuments = this.filterMentionedDocuments(
+        documents,
+        message.text,
+        message.context?.threadHistory,
+        userInput
+      );
+
+      if (mentionedDocuments.length > 0) {
+        context += "\n\n=== IMPORTANT: COMPANY DOCUMENTATION AVAILABLE ===\n";
+        context +=
+          "The following company documents contain critical information that MUST be referenced when answering questions:\n\n";
+        mentionedDocuments.forEach((doc, index) => {
+          context += `${doc.name}:\n`;
+          if (doc.content) {
+            // Include full document content for complete context
+            context += `Content:\n${doc.content}\n\n`;
+            context += "--- END OF DOCUMENT ---\n\n";
+          } else {
+            context += `(${doc.type} file - content not available)\n\n`;
+          }
+        });
+        context += "=== END OF COMPANY DOCUMENTATION ===\n";
+        context +=
+          "INSTRUCTION: When answering questions, you MUST reference and use the above documentation. Do not provide generic responses when specific company information is available. When referencing documents, use their full name without any document numbers.\n\n";
+      }
     }
 
     // Add user device information
@@ -447,6 +498,13 @@ export class AIService {
 
     // Add the current message
     context += `\n\nCurrent Message: ${message.text}\n\n`;
+
+    // Final instruction emphasizing document usage
+    if (documents && documents.length > 0) {
+      context +=
+        "CRITICAL REMINDER: You have access to company documentation above. When responding to questions about policies, procedures, or company-specific information, you MUST use and reference the provided documents. Do not give generic answers when specific company information is available.\n\n";
+    }
+
     context += "Please provide a helpful response to this IT support request.";
 
     return context;
@@ -562,8 +620,29 @@ Guidelines:
       }
     );
 
-    const responseText =
-      response.data.candidates[0]?.content?.parts[0]?.text || "";
+    this.logger.debug(
+      "Google API response structure:",
+      JSON.stringify(response.data, null, 2)
+    );
+
+    // Handle different response structures
+    let responseText = "";
+    if (response.data.candidates && response.data.candidates.length > 0) {
+      responseText = response.data.candidates[0]?.content?.parts[0]?.text || "";
+    } else if (response.data.error) {
+      this.logger.error("Google API error:", response.data.error);
+      throw new Error(
+        `Google API error: ${response.data.error.message || "Unknown error"}`
+      );
+    } else {
+      this.logger.warn(
+        "Unexpected Google API response structure:",
+        response.data
+      );
+      responseText =
+        "Sorry, I received an unexpected response format from the AI service.";
+    }
+
     const tokensUsed = response.data.usageMetadata?.totalTokenCount || 0;
 
     return { response: responseText, tokensUsed };
@@ -719,7 +798,9 @@ Guidelines:
         case "ollama":
           return await this.getOllamaModels(client);
         default:
-          this.logger.warn(`Model discovery not supported for ${provider.type}, using defaults`);
+          this.logger.warn(
+            `Model discovery not supported for ${provider.type}, using defaults`
+          );
           return provider.models;
       }
     } catch (error) {
@@ -732,26 +813,33 @@ Guidelines:
   private async getOpenAIModels(client: AxiosInstance): Promise<AIModel[]> {
     const response = await client.get("/models");
     const models = response.data.data || [];
-    
+
     // Map OpenAI models to our AIModel interface
     return models
-      .filter((model: any) => 
-        model.id.includes("gpt") && 
-        !model.id.includes("instruct") && 
-        !model.id.includes("edit")
+      .filter(
+        (model: any) =>
+          model.id.includes("gpt") &&
+          !model.id.includes("instruct") &&
+          !model.id.includes("edit")
       )
       .map((model: any) => ({
         id: model.id,
-                 name: this.formatModelName(model.id),
-         contextWindow: this.getContextWindow(model.id),
-         maxTokens: this.getMaxTokens(model.id),
-         isDefault: model.id === "gpt-4o" || model.id === "gpt-4-turbo",
+        name: this.formatModelName(model.id),
+        contextWindow: this.getContextWindow(model.id),
+        maxTokens: this.getMaxTokens(model.id),
+        isDefault: model.id === "gpt-4o" || model.id === "gpt-4-turbo",
       }))
       .sort((a: AIModel, b: AIModel) => {
         // Sort with newest/best models first
-        const order = ["gpt-5", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"];
-        const aIndex = order.findIndex(m => a.id.includes(m));
-        const bIndex = order.findIndex(m => b.id.includes(m));
+        const order = [
+          "gpt-5",
+          "gpt-4o",
+          "gpt-4o-mini",
+          "gpt-4-turbo",
+          "gpt-3.5-turbo",
+        ];
+        const aIndex = order.findIndex((m) => a.id.includes(m));
+        const bIndex = order.findIndex((m) => b.id.includes(m));
         if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
@@ -763,87 +851,92 @@ Guidelines:
     // Anthropic doesn't have a public models endpoint, so we use our predefined list
     // but we can validate which ones are available
     const knownModels = [
-             {
-         id: "claude-4-sonnet-20241220",
-         name: "Claude 4 Sonnet",
-         contextWindow: 200000,
-         maxTokens: 8192,
-         isDefault: true,
-       },
-       {
-         id: "claude-3-5-sonnet-20241022",
-         name: "Claude 3.5 Sonnet",
-         contextWindow: 200000,
-         maxTokens: 8192,
-       },
-       {
-         id: "claude-3-5-haiku-20241022",
-         name: "Claude 3.5 Haiku",
-         contextWindow: 200000,
-         maxTokens: 8192,
-       },
-       {
-         id: "claude-3-opus-20240229",
-         name: "Claude 3 Opus",
-         contextWindow: 200000,
-         maxTokens: 4096,
-       },
+      {
+        id: "claude-4-sonnet-20241220",
+        name: "Claude 4 Sonnet",
+        contextWindow: 200000,
+        maxTokens: 8192,
+        isDefault: true,
+      },
+      {
+        id: "claude-3-5-sonnet-20241022",
+        name: "Claude 3.5 Sonnet",
+        contextWindow: 200000,
+        maxTokens: 8192,
+      },
+      {
+        id: "claude-3-5-haiku-20241022",
+        name: "Claude 3.5 Haiku",
+        contextWindow: 200000,
+        maxTokens: 8192,
+      },
+      {
+        id: "claude-3-opus-20240229",
+        name: "Claude 3 Opus",
+        contextWindow: 200000,
+        maxTokens: 4096,
+      },
     ];
-    
+
     return knownModels;
   }
 
-  private async getGoogleModels(client: AxiosInstance, apiKey: string): Promise<AIModel[]> {
+  private async getGoogleModels(
+    client: AxiosInstance,
+    apiKey: string
+  ): Promise<AIModel[]> {
     try {
       const response = await client.get(`/v1beta/models?key=${apiKey}`);
       const models = response.data.models || [];
-      
+
       return models
-        .filter((model: any) => 
-          model.name.includes("gemini") && 
-          model.supportedGenerationMethods?.includes("generateContent")
+        .filter(
+          (model: any) =>
+            model.name.includes("gemini") &&
+            model.supportedGenerationMethods?.includes("generateContent")
         )
         .map((model: any) => {
           const modelId = model.name.split("/").pop(); // Extract model ID from full name
-                     return {
-             id: modelId,
-             name: this.formatGoogleModelName(modelId),
-             contextWindow: model.inputTokenLimit || 32000,
-             maxTokens: model.outputTokenLimit || 8192,
-             isDefault: modelId.includes("2.5-pro"),
-           };
+          return {
+            id: modelId,
+            name: this.formatGoogleModelName(modelId),
+            contextWindow: model.inputTokenLimit || 32000,
+            maxTokens: model.outputTokenLimit || 8192,
+            isDefault: modelId.includes("2.5-pro"),
+          };
         })
         .sort((a: AIModel, b: AIModel) => {
           // Sort with newest models first
           const order = ["2.5", "1.5", "1.0"];
-          const aVersion = order.find(v => a.id.includes(v));
-          const bVersion = order.find(v => b.id.includes(v));
-          if (aVersion && bVersion) return order.indexOf(aVersion) - order.indexOf(bVersion);
+          const aVersion = order.find((v) => a.id.includes(v));
+          const bVersion = order.find((v) => b.id.includes(v));
+          if (aVersion && bVersion)
+            return order.indexOf(aVersion) - order.indexOf(bVersion);
           return a.name.localeCompare(b.name);
         });
     } catch (error) {
       this.logger.warn("Failed to fetch Google models, using defaults:", error);
       // Return known Google models as fallback
       return [
-                 {
-           id: "gemini-2.5-pro",
-           name: "Gemini 2.5 Pro",
-           contextWindow: 2000000,
-           maxTokens: 8192,
-           isDefault: true,
-         },
-         {
-           id: "gemini-1.5-pro",
-           name: "Gemini 1.5 Pro",
-           contextWindow: 2000000,
-           maxTokens: 8192,
-         },
-         {
-           id: "gemini-1.5-flash",
-           name: "Gemini 1.5 Flash",
-           contextWindow: 1000000,
-           maxTokens: 8192,
-         },
+        {
+          id: "gemini-2.5-pro",
+          name: "Gemini 2.5 Pro",
+          contextWindow: 2000000,
+          maxTokens: 8192,
+          isDefault: true,
+        },
+        {
+          id: "gemini-1.5-pro",
+          name: "Gemini 1.5 Pro",
+          contextWindow: 2000000,
+          maxTokens: 8192,
+        },
+        {
+          id: "gemini-1.5-flash",
+          name: "Gemini 1.5 Flash",
+          contextWindow: 1000000,
+          maxTokens: 8192,
+        },
       ];
     }
   }
@@ -852,7 +945,7 @@ Guidelines:
     try {
       const response = await client.get("/api/tags");
       const models = response.data.models || [];
-      
+
       return models.map((model: any) => ({
         id: model.name,
         name: this.formatOllamaModelName(model.name),
@@ -876,8 +969,11 @@ Guidelines:
       "gpt-4-turbo-preview": "GPT-4 Turbo Preview",
       "gpt-3.5-turbo": "GPT-3.5 Turbo",
     };
-    
-    return nameMap[modelId] || modelId.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+
+    return (
+      nameMap[modelId] ||
+      modelId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
   }
 
   private formatGoogleModelName(modelId: string): string {
@@ -891,7 +987,7 @@ Guidelines:
   private formatOllamaModelName(modelId: string): string {
     return modelId
       .replace(":", " ")
-      .replace(/\b\w/g, l => l.toUpperCase())
+      .replace(/\b\w/g, (l) => l.toUpperCase())
       .replace("Llama", "Llama")
       .replace("Codellama", "Code Llama");
   }
@@ -904,7 +1000,7 @@ Guidelines:
       "gpt-4-turbo": 128000,
       "gpt-3.5-turbo": 16385,
     };
-    
+
     return contextMap[modelId] || 8192;
   }
 
@@ -916,9 +1012,141 @@ Guidelines:
       "gpt-4-turbo": 4096,
       "gpt-3.5-turbo": 4096,
     };
-    
+
     return tokenMap[modelId] || 4096;
   }
 
+  private checkForDocumentAttachments(
+    response: string,
+    documents?: any[]
+  ): any[] {
+    if (!documents || documents.length === 0) {
+      return [];
+    }
 
+    const attachments: any[] = [];
+    const responseText = response.toLowerCase();
+
+    // Check each document to see if it's mentioned in the response
+    documents.forEach((doc) => {
+      if (!doc.filePath) return; // Skip notes and documents without files
+
+      // Create various ways the document might be referenced
+      const documentNames = [
+        doc.name.toLowerCase(),
+        // Remove file extension for matching
+        doc.name.toLowerCase().replace(/\.(pdf|txt|docx?|xlsx?)$/i, ""),
+        // Remove version numbers/dates in parentheses
+        doc.name
+          .toLowerCase()
+          .replace(/\s*\([^)]*\)\s*/g, "")
+          .trim(),
+      ];
+
+      // Check if any form of the document name is mentioned in the response
+      const isDocumentMentioned = documentNames.some((name) => {
+        // Split document name into words to check for partial matches
+        const words = name
+          .split(/\s+/)
+          .filter((word: string) => word.length > 2); // Only consider words longer than 2 chars
+
+        // If document name has multiple words, check if enough of them are mentioned
+        if (words.length > 1) {
+          const mentionedWords = words.filter((word: string) =>
+            responseText.includes(word)
+          );
+          return mentionedWords.length >= Math.min(2, words.length); // At least 2 words or all words if fewer than 2
+        } else {
+          // For single-word documents, require exact match
+          return responseText.includes(name);
+        }
+      });
+
+      if (isDocumentMentioned) {
+        this.logger.info(
+          `Adding ${doc.name} as attachment - mentioned in AI response`
+        );
+        attachments.push({
+          id: `attachment_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          documentId: doc.id, // Original document ID for viewing
+          name: doc.name,
+          type: doc.type,
+          path: doc.filePath,
+          size: doc.size,
+        });
+      }
+    });
+
+    if (attachments.length > 0) {
+      this.logger.info(
+        `Added ${attachments.length} document attachment(s) to AI response`
+      );
+    }
+
+    return attachments;
+  }
+
+  private filterMentionedDocuments(
+    documents: any[],
+    messageText: string,
+    threadHistory?: any[],
+    userInput?: string
+  ): any[] {
+    const allText = [messageText];
+
+    // Include thread history text for context
+    if (threadHistory && threadHistory.length > 0) {
+      allText.push(...threadHistory.map((msg) => msg.text));
+    }
+
+    // Include user's AI input if provided
+    if (userInput) {
+      allText.push(userInput);
+    }
+
+    const combinedText = allText.join(" ").toLowerCase();
+
+    return documents.filter((doc) => {
+      if (!doc.name) return false;
+
+      // Create various ways the document might be referenced
+      const documentNames = [
+        doc.name.toLowerCase(),
+        // Remove file extension for matching
+        doc.name.toLowerCase().replace(/\.(pdf|txt|docx?|xlsx?)$/i, ""),
+        // Remove version numbers/dates in parentheses
+        doc.name
+          .toLowerCase()
+          .replace(/\s*\([^)]*\)\s*/g, "")
+          .trim(),
+      ];
+
+      // Check if any form of the document name is mentioned in the messages
+      const isDocumentMentioned = documentNames.some((name) => {
+        // Split document name into words to check for partial matches
+        const words = name
+          .split(/\s+/)
+          .filter((word: string) => word.length > 2);
+
+        // If document name has multiple words, check if enough of them are mentioned
+        if (words.length > 1) {
+          const mentionedWords = words.filter((word: string) =>
+            combinedText.includes(word)
+          );
+          return mentionedWords.length >= Math.min(2, words.length);
+        } else {
+          // For single-word documents, require exact match
+          return combinedText.includes(name);
+        }
+      });
+
+      if (isDocumentMentioned) {
+        this.logger.info(
+          `Including ${doc.name} in AI context - mentioned in messages`
+        );
+      }
+
+      return isDocumentMentioned;
+    });
+  }
 }

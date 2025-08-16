@@ -245,16 +245,26 @@ class Application {
     // AI IPC
     ipcMain.handle("ai:generateResponse", async (event, requestData) => {
       try {
-        const { message, threadMessages, userInput, providerId, modelId } = requestData;
+        const { message, threadMessages, userInput, providerId, modelId } =
+          requestData;
 
-        // Get documents if available (future feature)
+        // Get documents if available
         const documents: any[] = [];
+        try {
+          const allDocuments =
+            await this.docsService.getAllDocumentsWithMetadata();
+          documents.push(...allDocuments);
+        } catch (error) {
+          console.log("Could not fetch documents:", error);
+        }
 
         // Get user devices if available
         const userDevices: any[] = [];
         try {
           if (message.user && this.ripplingService) {
-            const devices = await this.ripplingService.getUserDevices(message.user);
+            const devices = await this.ripplingService.getUserDevices(
+              message.user
+            );
             userDevices.push(...devices);
           }
         } catch (error) {
@@ -268,7 +278,8 @@ class Application {
           userDevices,
           undefined, // systemPrompt - can be added later
           providerId,
-          modelId
+          modelId,
+          userInput
         );
         return response;
       } catch (error) {
@@ -409,7 +420,11 @@ class Application {
       try {
         // Convert ArrayBuffer to Buffer for Node.js processing
         const buffer = Buffer.from(fileData.arrayBuffer);
-        return await this.docsService.uploadDocument(buffer, fileData.name, fileData.type);
+        return await this.docsService.uploadDocument(
+          buffer,
+          fileData.name,
+          fileData.type
+        );
       } catch (error) {
         this.logger.error("Failed to upload document:", error);
         throw error;
@@ -418,7 +433,10 @@ class Application {
 
     ipcMain.handle("docs:createNote", async (event, noteData) => {
       try {
-        return await this.docsService.createNote(noteData.title, noteData.content);
+        return await this.docsService.createNote(
+          noteData.title,
+          noteData.content
+        );
       } catch (error) {
         this.logger.error("Failed to create note:", error);
         throw error;
@@ -427,7 +445,11 @@ class Application {
 
     ipcMain.handle("docs:updateNote", async (event, noteData) => {
       try {
-        return await this.docsService.updateNote(noteData.id, noteData.title, noteData.content);
+        return await this.docsService.updateNote(
+          noteData.id,
+          noteData.title,
+          noteData.content
+        );
       } catch (error) {
         this.logger.error("Failed to update note:", error);
         throw error;
@@ -448,6 +470,15 @@ class Application {
         return await this.docsService.viewDocument(id);
       } catch (error) {
         this.logger.error("Failed to view document:", error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle("docs:getDocumentFile", async (event, id) => {
+      try {
+        return await this.docsService.getDocumentFile(id);
+      } catch (error) {
+        this.logger.error("Failed to get document file:", error);
         throw error;
       }
     });

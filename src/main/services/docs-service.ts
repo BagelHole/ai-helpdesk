@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { app } from "electron";
+import pdfParse from "pdf-parse";
 import { Logger } from "./logger-service";
 
 export interface Document {
@@ -26,7 +27,10 @@ export class DocsService {
     this.logger.info(`Metadata file: ${this.metadataFile}`);
     // Don't await here since constructor can't be async
     this.ensureDocsDirectory().catch((error) => {
-      this.logger.error("Failed to ensure docs directory during construction:", error);
+      this.logger.error(
+        "Failed to ensure docs directory during construction:",
+        error
+      );
     });
   }
 
@@ -88,11 +92,15 @@ export class DocsService {
     }
   }
 
-  public async updateNote(id: string, title: string, content: string): Promise<Document> {
+  public async updateNote(
+    id: string,
+    title: string,
+    content: string
+  ): Promise<Document> {
     try {
       const documents = await this.loadMetadata();
-      const documentIndex = documents.findIndex(doc => doc.id === id);
-      
+      const documentIndex = documents.findIndex((doc) => doc.id === id);
+
       if (documentIndex === -1) {
         throw new Error("Note not found");
       }
@@ -119,20 +127,26 @@ export class DocsService {
     }
   }
 
-  public async uploadDocument(fileBuffer: Buffer, fileName: string, fileType: string): Promise<Document> {
+  public async uploadDocument(
+    fileBuffer: Buffer,
+    fileName: string,
+    fileType: string
+  ): Promise<Document> {
     try {
-      this.logger.info(`Starting upload: ${fileName}, type: ${fileType}, size: ${fileBuffer.length}`);
-      
+      this.logger.info(
+        `Starting upload: ${fileName}, type: ${fileType}, size: ${fileBuffer.length}`
+      );
+
       const id = Date.now().toString();
       const fileExtension = path.extname(fileName);
       const storedFileName = `${id}${fileExtension}`;
       const filePath = path.join(this.docsDir, storedFileName);
 
       this.logger.info(`Saving file to: ${filePath}`);
-      
+
       // Ensure docs directory exists
       await this.ensureDocsDirectory();
-      
+
       // Save the file
       await fs.writeFile(filePath, fileBuffer);
       this.logger.info(`File saved successfully: ${storedFileName}`);
@@ -141,7 +155,9 @@ export class DocsService {
       let content: string | undefined;
       if (fileType === "text/plain") {
         content = fileBuffer.toString("utf-8");
-        this.logger.info(`Extracted text content: ${content.length} characters`);
+        this.logger.info(
+          `Extracted text content: ${content.length} characters`
+        );
       }
 
       const document: Document = {
@@ -154,11 +170,14 @@ export class DocsService {
         filePath: storedFileName,
       };
 
-      this.logger.info(`Created document object:`, JSON.stringify(document, null, 2));
+      this.logger.info(
+        `Created document object:`,
+        JSON.stringify(document, null, 2)
+      );
 
       const documents = await this.loadMetadata();
       this.logger.info(`Loaded existing documents: ${documents.length}`);
-      
+
       documents.push(document);
       await this.saveMetadata(documents);
       this.logger.info(`Saved metadata with ${documents.length} documents`);
@@ -174,14 +193,14 @@ export class DocsService {
   public async deleteDocument(id: string): Promise<boolean> {
     try {
       const documents = await this.loadMetadata();
-      const documentIndex = documents.findIndex(doc => doc.id === id);
-      
+      const documentIndex = documents.findIndex((doc) => doc.id === id);
+
       if (documentIndex === -1) {
         throw new Error("Document not found");
       }
 
       const document = documents[documentIndex];
-      
+
       // Delete the physical file if it exists
       if (document.filePath) {
         const fullPath = path.join(this.docsDir, document.filePath);
@@ -207,19 +226,26 @@ export class DocsService {
   public async getDocument(id: string): Promise<Document | null> {
     try {
       const documents = await this.loadMetadata();
-      const document = documents.find(doc => doc.id === id);
-      
+      const document = documents.find((doc) => doc.id === id);
+
       if (!document) {
         return null;
       }
 
       // If it's a file-based document and content is not loaded, read it
-      if (document.filePath && !document.content && document.type === "text") {
+      if (document.filePath && !document.content) {
         const fullPath = path.join(this.docsDir, document.filePath);
         try {
-          document.content = await fs.readFile(fullPath, "utf-8");
+          if (document.type === "text") {
+            document.content = await fs.readFile(fullPath, "utf-8");
+          } else if (document.type === "pdf") {
+            document.content = await this.extractPdfText(fullPath);
+          }
         } catch (error) {
-          this.logger.error(`Failed to read document content for ${document.name}:`, error);
+          this.logger.error(
+            `Failed to read document content for ${document.name}:`,
+            error
+          );
         }
       }
 
@@ -230,10 +256,28 @@ export class DocsService {
     }
   }
 
-  public async viewDocument(id: string): Promise<{ success: boolean; content?: string; path?: string }> {
+  private async extractPdfText(filePath: string): Promise<string> {
+    try {
+      this.logger.info(`Extracting text from PDF: ${filePath}`);
+      const dataBuffer = await fs.readFile(filePath);
+      const data = await pdfParse(dataBuffer);
+      this.logger.info(
+        `Successfully extracted ${data.text.length} characters from PDF`
+      );
+      return data.text;
+    } catch (error) {
+      this.logger.error(`Failed to extract text from PDF ${filePath}:`, error);
+      this.logger.error("PDF parsing error details:", error);
+      return "";
+    }
+  }
+
+  public async viewDocument(
+    id: string
+  ): Promise<{ success: boolean; content?: string; path?: string }> {
     try {
       const document = await this.getDocument(id);
-      
+
       if (!document) {
         throw new Error("Document not found");
       }
@@ -245,6 +289,11 @@ export class DocsService {
         };
       } else if (document.type === "pdf" && document.filePath) {
         const fullPath = path.join(this.docsDir, document.filePath);
+
+        // Open the PDF file using the system's default PDF viewer
+        const { shell } = require("electron");
+        await shell.openExternal(`file://${fullPath}`);
+
         return {
           success: true,
           path: fullPath,
@@ -258,35 +307,117 @@ export class DocsService {
     }
   }
 
-  public async getAllDocumentContents(): Promise<Array<{ title: string; content: string; type: string }>> {
+  public async getAllDocumentContents(): Promise<
+    Array<{ name: string; content: string; type: string }>
+  > {
     try {
       const documents = await this.loadMetadata();
-      const contents: Array<{ title: string; content: string; type: string }> = [];
+      const contents: Array<{ name: string; content: string; type: string }> =
+        [];
 
       for (const doc of documents) {
         if (doc.type === "note") {
           contents.push({
-            title: doc.name,
+            name: doc.name,
             content: doc.content || "",
             type: "note",
           });
-        } else if (doc.type === "text") {
+        } else if (doc.type === "text" || doc.type === "pdf") {
           const fullDoc = await this.getDocument(doc.id);
           if (fullDoc?.content) {
             contents.push({
-              title: doc.name,
+              name: doc.name,
               content: fullDoc.content,
-              type: "text",
+              type: doc.type,
             });
           }
         }
-        // PDF content extraction would require additional libraries
       }
 
       return contents;
     } catch (error) {
       this.logger.error("Failed to get all document contents:", error);
       return [];
+    }
+  }
+
+  public async getAllDocumentsWithMetadata(): Promise<
+    Array<{
+      name: string;
+      content: string;
+      type: string;
+      id: string;
+      filePath?: string;
+      size: number;
+    }>
+  > {
+    try {
+      const documents = await this.loadMetadata();
+      const documentsWithMetadata: Array<{
+        name: string;
+        content: string;
+        type: string;
+        id: string;
+        filePath?: string;
+        size: number;
+      }> = [];
+
+      for (const doc of documents) {
+        if (doc.type === "note") {
+          documentsWithMetadata.push({
+            name: doc.name,
+            content: doc.content || "",
+            type: "note",
+            id: doc.id,
+            size: doc.size,
+          });
+        } else if (doc.type === "text" || doc.type === "pdf") {
+          const fullDoc = await this.getDocument(doc.id);
+          if (fullDoc?.content) {
+            documentsWithMetadata.push({
+              name: doc.name,
+              content: fullDoc.content,
+              type: doc.type,
+              id: doc.id,
+              filePath: doc.filePath,
+              size: doc.size,
+            });
+          }
+        }
+      }
+
+      return documentsWithMetadata;
+    } catch (error) {
+      this.logger.error("Failed to get all documents with metadata:", error);
+      return [];
+    }
+  }
+
+  public async getDocumentFile(
+    id: string
+  ): Promise<{ content: ArrayBuffer; name: string; type: string } | null> {
+    try {
+      const document = await this.getDocument(id);
+      if (!document) {
+        this.logger.error(`Document not found: ${id}`);
+        return null;
+      }
+
+      // Read the actual file from the filesystem
+      const fs = require("fs").promises;
+      const fileBuffer = await fs.readFile(document.filePath);
+
+      return {
+        content: fileBuffer.buffer.slice(
+          fileBuffer.byteOffset,
+          fileBuffer.byteOffset + fileBuffer.byteLength
+        ),
+        name: document.name,
+        type: document.type,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get document file ${id}:`, error);
+      return null;
     }
   }
 }
