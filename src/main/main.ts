@@ -328,6 +328,69 @@ class Application {
       }
     });
 
+    ipcMain.handle("ai:sendChatMessage", async (event, requestData) => {
+      try {
+        const { content, providerId, modelId, conversationHistory } = requestData;
+
+        // Create a simplified message for chat
+        const chatMessage = {
+          id: `chat-${Date.now()}`,
+          channel: "chat",
+          user: "user",
+          text: content,
+          timestamp: new Date().toISOString(),
+          type: "message" as const,
+          priority: "medium" as const,
+          category: "general" as const,
+          status: "open" as const,
+        };
+
+        // Convert conversation history to thread messages if provided
+        const threadMessages = conversationHistory?.map((msg, index) => ({
+          id: `chat-history-${index}`,
+          channel: "chat",
+          user: msg.role === "user" ? "user" : "assistant",
+          text: msg.content,
+          timestamp: new Date(Date.now() - (conversationHistory.length - index) * 1000).toISOString(),
+          type: "message" as const,
+          priority: "medium" as const,
+          category: "general" as const,
+          status: "open" as const,
+        })) || [];
+
+        // Get documents for context (optional for chat)
+        const documents: any[] = [];
+        try {
+          const allDocuments = await this.docsService.getAllDocumentsWithMetadata();
+          documents.push(...allDocuments);
+        } catch (error) {
+          // Silently ignore document errors for chat
+        }
+
+        const response = await this.aiService.generateResponse(
+          chatMessage,
+          threadMessages,
+          documents,
+          [], // No user devices for chat
+          undefined, // No custom system prompt
+          providerId,
+          modelId,
+          content
+        );
+
+        return {
+          content: response.content,
+          usage: {
+            tokensUsed: response.tokensUsed,
+            responseTime: response.responseTime,
+          },
+        };
+      } catch (error) {
+        this.logger.error("Failed to send chat message:", error);
+        throw error;
+      }
+    });
+
     // Database IPC
     ipcMain.handle("db:getMessages", async (event, filters) => {
       try {

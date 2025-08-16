@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Layout } from "./components/Layout/Layout";
 import { MessageQueue } from "./components/MessageQueue/MessageQueue";
 import { MessageDetail } from "./components/MessageDetail/MessageDetail";
+import { Chat } from "./components/Chat/Chat";
 import { Docs } from "./components/Docs/Docs";
 import { Devices } from "./components/Devices/Devices";
 import { Settings } from "./components/Settings/Settings";
@@ -201,6 +202,7 @@ export const App: React.FC = () => {
           <Route path="/" element={<Layout />}>
             <Route index element={<MessageQueue />} />
             <Route path="message/:messageId" element={<MessageDetail />} />
+            <Route path="chat" element={<Chat />} />
             <Route path="docs" element={<Docs />} />
             <Route path="devices" element={<ProtectedDevicesRoute />} />
             <Route path="settings/*" element={<Settings />} />

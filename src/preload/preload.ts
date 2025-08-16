@@ -40,6 +40,12 @@ interface ElectronAPI {
       providerId?: string;
       modelId?: string;
     }) => Promise<AIResponse>;
+    sendChatMessage: (requestData: {
+      content: string;
+      providerId: string;
+      modelId: string;
+      conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+    }) => Promise<{ content: string; usage?: any }>;
     getProviders: () => Promise<any[]>;
     getAvailableModels: (providerId: string) => Promise<any[]>;
     testProvider: (
@@ -132,6 +138,12 @@ const electronAPI: ElectronAPI = {
       providerId?: string;
       modelId?: string;
     }) => ipcRenderer.invoke("ai:generateResponse", requestData),
+    sendChatMessage: (requestData: {
+      content: string;
+      providerId: string;
+      modelId: string;
+      conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+    }) => ipcRenderer.invoke("ai:sendChatMessage", requestData),
     getProviders: () => ipcRenderer.invoke("ai:getProviders"),
     getAvailableModels: (providerId: string) =>
       ipcRenderer.invoke("ai:getAvailableModels", providerId),

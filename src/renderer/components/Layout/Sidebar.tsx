@@ -7,11 +7,13 @@ import {
   Cog6ToothIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  ChatBubbleBottomCenterTextIcon,
 } from "@heroicons/react/24/outline";
 import { useAppStore } from "../../hooks/useAppStore";
 
 const baseNavigation = [
   { name: "Messages", href: "/", icon: ChatBubbleLeftRightIcon },
+  { name: "AI Chat", href: "/chat", icon: ChatBubbleBottomCenterTextIcon },
   { name: "Docs", href: "/docs", icon: DocumentIcon },
   { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
 ];
