@@ -29,6 +29,7 @@
     "dev:main": "webpack --config webpack.main.config.js --mode development --watch",
     "dev:renderer": "webpack serve --config webpack.renderer.config.js --mode development",
     "dev:preload": "webpack --config webpack.preload.config.js --mode development --watch",
+    "rebuild": "electron-builder install-app-deps",
     "build": "npm run build:main && npm run build:renderer && npm run build:preload",
     "build:main": "webpack --config webpack.main.config.js --mode production",
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
@@ -72,6 +73,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/crypto-js": "^4.2.1",
     "@types/jest": "^29.5.8",
@@ -131,6 +133,8 @@
     "icon": "resources/icon.png",
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
+    "npmRebuild": false,
+    "includeSubNodeModules": true,
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "resources/icon.icns",
