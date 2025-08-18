@@ -1,6 +1,7 @@
 import Database, { Database as DatabaseType } from "better-sqlite3";
 import { app } from "electron";
 import path from "path";
+import fs from "fs";
 import { Logger } from "./logger-service";
 import { SlackMessage, AIResponse, RipplingUser } from "@shared/types";
 
@@ -16,11 +17,90 @@ export class DatabaseService {
 
   public async initialize(): Promise<void> {
     try {
-      this.db = new Database(this.dbPath);
-      this.logger.info("Database connected successfully");
+      this.logger.info(`Initializing database at: ${this.dbPath}`);
+
+      // Ensure the userData directory exists
+      const userDataPath = app.getPath("userData");
+      this.logger.info(`UserData directory: ${userDataPath}`);
+
+      if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true });
+        this.logger.info(`Created userData directory: ${userDataPath}`);
+      } else {
+        this.logger.info(`UserData directory already exists`);
+      }
+
+      // Check if database file already exists
+      if (fs.existsSync(this.dbPath)) {
+        this.logger.info(`Database file already exists at: ${this.dbPath}`);
+      } else {
+        this.logger.info(`Creating new database file at: ${this.dbPath}`);
+      }
+
+      // Try to create the database connection
+      this.logger.info("Creating better-sqlite3 database connection...");
+      this.logger.info("App is packaged:", app.isPackaged);
+      this.logger.info("Process resource path:", process.resourcesPath);
+
+      try {
+        this.db = new Database(this.dbPath);
+        this.logger.info("Database connection created successfully");
+      } catch (dbError) {
+        this.logger.error(
+          "Failed to create database with standard path:",
+          dbError
+        );
+
+        // Try alternative approach for packaged apps
+        if (app.isPackaged) {
+          this.logger.info("Attempting packaged app database creation...");
+          const Database2 = require(
+            path.join(
+              process.resourcesPath,
+              "app.asar.unpacked",
+              "node_modules",
+              "better-sqlite3"
+            )
+          );
+          this.db = new Database2(this.dbPath);
+          this.logger.info("Database connection created with packaged path");
+        } else {
+          throw dbError;
+        }
+      }
+
+      // Test the connection with a simple query
+      this.db.exec("SELECT 1");
+      this.logger.info("Database connection tested successfully");
+
       this.createTables();
+      this.logger.info("Database initialization completed successfully");
     } catch (err) {
-      this.logger.error("Failed to open database:", err);
+      this.logger.error("Failed to initialize database:", err);
+      this.logger.error("Error details:", {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        dbPath: this.dbPath,
+        userDataPath: app.getPath("userData"),
+        nodeVersion: process.version,
+        electronVersion: process.versions.electron,
+        platform: process.platform,
+        arch: process.arch,
+      });
+
+      // Clean up if database was partially created
+      if (this.db) {
+        try {
+          this.db.close();
+        } catch (closeErr) {
+          this.logger.error(
+            "Failed to close database during cleanup:",
+            closeErr
+          );
+        }
+        this.db = null;
+      }
+
       throw err;
     }
   }
@@ -457,6 +537,11 @@ export class DatabaseService {
       this.logger.error("Failed to get Rippling user:", error);
       throw error;
     }
+  }
+
+  // Check if database is initialized
+  public isInitialized(): boolean {
+    return this.db !== null;
   }
 
   // Close database connection

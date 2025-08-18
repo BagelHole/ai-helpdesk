@@ -425,6 +425,10 @@ class Application {
     // Database IPC
     ipcMain.handle("db:getMessages", async (event, filters) => {
       try {
+        if (!this.databaseService.isInitialized()) {
+          this.logger.warn("Database not initialized, returning empty array");
+          return [];
+        }
         return await this.databaseService.getMessages(filters);
       } catch (error) {
         this.logger.error("Failed to get messages from database:", error);
@@ -434,6 +438,10 @@ class Application {
 
     ipcMain.handle("db:clearMessages", async () => {
       try {
+        if (!this.databaseService.isInitialized()) {
+          this.logger.warn("Database not initialized, cannot clear messages");
+          return { success: false, error: "Database not initialized" };
+        }
         await this.databaseService.clearAllMessages();
         return { success: true };
       } catch (error) {
@@ -444,6 +452,10 @@ class Application {
 
     ipcMain.handle("db:saveMessage", async (event, message) => {
       try {
+        if (!this.databaseService.isInitialized()) {
+          this.logger.warn("Database not initialized, cannot save message");
+          return { success: false, error: "Database not initialized" };
+        }
         return await this.databaseService.saveMessage(message);
       } catch (error) {
         this.logger.error("Failed to save message to database:", error);
@@ -773,9 +785,22 @@ class Application {
       // Initialize database
       try {
         await this.databaseService.initialize();
+        this.logger.info("Database initialized successfully");
       } catch (error) {
         this.logger.error("Database initialization failed:", error);
-        // Continue without database for now
+        this.logger.warn(
+          "Application will continue without database functionality"
+        );
+        // Show warning to user about database issues
+        if (!isDev) {
+          dialog.showMessageBox({
+            type: "warning",
+            title: "Database Warning",
+            message: "Database initialization failed",
+            detail:
+              "The application will continue to run, but message history and analytics will not be available. Please check the logs for more details.",
+          });
+        }
       }
 
       // Initialize settings

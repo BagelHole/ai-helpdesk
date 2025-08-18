@@ -588,7 +588,7 @@ export class SlackService {
   private async processMessage(message: SlackMessage): Promise<void> {
     try {
       // Save to database if available
-      if (this.databaseService) {
+      if (this.databaseService && this.databaseService.isInitialized()) {
         try {
           await this.databaseService.saveMessage(message);
           this.logger.debug(`Message saved to database: ${message.id}`);
@@ -698,7 +698,7 @@ export class SlackService {
       }
 
       // Save to database if available
-      if (this.databaseService) {
+      if (this.databaseService && this.databaseService.isInitialized()) {
         try {
           await this.databaseService.saveMessage(message);
           this.logger.debug(`Message saved to database: ${message.id}`);

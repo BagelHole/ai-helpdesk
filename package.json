@@ -1,6 +1,6 @@
 {
   "name": "ai-helpdesk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered helpdesk for Slack messages with your Docs",
   "main": "dist/main/main.js",
   "homepage": "https://github.com/bagelhole/ai-helpdesk",
@@ -45,7 +45,8 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -135,6 +136,9 @@
     "buildDependenciesFromSource": false,
     "npmRebuild": false,
     "includeSubNodeModules": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "resources/icon.icns",
